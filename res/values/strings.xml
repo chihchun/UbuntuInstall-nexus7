@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">UbuntuInstaller</string>
+    <string name="action_settings">Settings</string>
+    <string name="welcome_world">Your life is about to change, welcome in Ubuntu installer</string>
+    <string name="download_button_label">Download Ubuntu release</string>
+    <string name="install_button_label">Install Ubuntu</string>
+    <string name="reboot_button_label">Reboot to Ubuntu</string>
+
+</resources>
