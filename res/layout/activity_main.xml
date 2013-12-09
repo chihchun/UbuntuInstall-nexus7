@@ -9,16 +9,15 @@
     tools:context=".MainActivity" >
 
     <TextView
-        android:id="@+id/textView1"
+        android:id="@+id/titleText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/welcome_world" />
-
     <Button
         android:id="@+id/downloadBbutton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_below="@+id/textView1"
+        android:layout_below="@+id/titleText"
         android:layout_centerHorizontal="true"
         android:layout_marginTop="41dp"
         android:text="@string/download_button_label" />
@@ -47,5 +46,7 @@
         android:layout_below="@+id/rebootToUbuntu"
         android:layout_height="fill_parent"
         android:layout_weight="1.0" />
+
+
     
 </RelativeLayout>

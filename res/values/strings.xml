@@ -7,5 +7,14 @@
     <string name="download_button_label">Download Ubuntu release</string>
     <string name="install_button_label">Install Ubuntu</string>
     <string name="reboot_button_label">Reboot to Ubuntu</string>
-
+    <string-array name="channel_array">
+        <item>devel</item>
+        <item>devel-proposed</item>
+        <item>devel-customized</item>
+        <item>devel-customized-generic</item>
+        <item>devel-proposed-customized</item>
+        <item>devel-proposed-customized-generic</item>
+        <item>saucy</item>
+        <item>saucy-customized</item>
+    </string-array>
 </resources>

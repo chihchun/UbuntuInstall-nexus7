@@ -286,3 +286,4 @@ fi
 touch /data/.last_update || true
 sync
 echo "Done upgrading: $(date)"
+exit 0

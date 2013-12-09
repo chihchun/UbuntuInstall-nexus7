@@ -44,6 +44,7 @@
                 <action android:name="com.canonical.ubuntuinstaller.UbuntuInstallService.DOWNLOAD_RELEASE" />
                 <action android:name="com.canonical.ubuntuinstaller.UbuntuInstallService.CANCEL_DOWNLOAD" />
                 <action android:name="com.canonical.ubuntuinstaller.UbuntuInstallService.REMOVE_DOWNLOADED" />
+                <action android:name="com.canonical.ubuntuinstaller.UbuntuInstallService.IS_READY_TO_INSTALL" />
                 <action android:name="com.canonical.ubuntuinstaller.UbuntuInstallService.INSTALL_UBUNTU" />
             </intent-filter>
         </service>
