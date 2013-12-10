@@ -117,6 +117,7 @@ public class UbuntuInstallService extends IntentService {
     // =================================================================================================
     private static final String BUSYBOX = "busybox";
     private static final String GPG = "gpg";
+    private static final String TAR = "tar";
     private static final String ANDROID_LOOP_MOUNT = "aloopmount";
     private static final String UPDATE_SCRIPT = "system-image-upgrader";
     private static final String ARCHIVE_MASTER = "archive-master.tar.xz";
@@ -295,6 +296,7 @@ public class UbuntuInstallService extends IntentService {
 	        try {
 	            Utils.extractExecutableAsset(this, BUSYBOX, supportingFiles.toString(), true);
 	            Utils.extractExecutableAsset(this, GPG, supportingFiles.toString(), true);
+	            Utils.extractExecutableAsset(this, TAR, supportingFiles.toString(), true);
 	            Utils.extractExecutableAsset(this, UPDATE_SCRIPT, supportingFiles.toString(), true);
 	            Utils.extractExecutableAsset(this, ANDROID_LOOP_MOUNT, supportingFiles.toString(), true);
 	            Utils.extractExecutableAsset(this, ARCHIVE_MASTER, supportingFiles.toString(), false);
