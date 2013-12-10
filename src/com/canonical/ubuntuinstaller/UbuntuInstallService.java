@@ -10,6 +10,21 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.json.JSONTokener;
+
+import com.canonical.ubuntuinstaller.JsonChannelParser.Image;
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 import android.app.IntentService;
 import android.content.Context;
@@ -25,21 +40,50 @@ import android.webkit.URLUtil;
 public class UbuntuInstallService extends IntentService {
     private static final String TAG = "UbuntuInstallService";
     
+    // =================================================================================================
     // Shared preferences
+    // =================================================================================================
     public final static String SHARED_PREF = "UInstallerPref";
+    // Key for string value: absolute path to update file
     public final static String PREF_KEY_UPDATE_COMMAND = "update_command";
-    public final static String PREF_KEY_DOWNLOADED_CHANNEL = "downloaded_channel"; 
-    public final static String PREF_KEY_INSTALLED_CHANNEL = "installed_channel"; // if empty, no Ubuntu installed
+    // Key for string value: channel alias
+    public final static String PREF_KEY_DOWNLOADED_CHANNEL_ALIAS = "downloaded_channel_alias";
+    // Key for string value: channel json url
+    public final static String PREF_KEY_DOWNLOADED_CHANNEL_JSON = "downloaded_channel_json";
+    // Key for int value: version string
+    public final static String PREF_KEY_DOWNLOADED_VERSION = "downloaded_version";
+    // Key for string value: channel alias, if empty, no Ubuntu installed
+    public final static String PREF_KEY_INSTALLED_CHANNEL_ALIAS = "installed_channel_alias";
+    // Key for string value: channel json url, if empty, no Ubuntu installed
+    public final static String PREF_KEY_INSTALLED_CHANNEL_JSON = "installed_channel_json";
+    // Key for int value: version, if empty, no Ubuntu installed
+    public final static String PREF_KEY_INSTALLED_VERSION = "installed_version";
+    // Key for boolean value: true if developer option is enabled
+    public final static String PREF_KEY_DEVELOPER = "developer";
 
-	// Service Actions
+    // =================================================================================================
+    // Service Actions
+    // =================================================================================================
+    // Get list of channels
+    public static final String GET_CHANNEL_LIST = "com.canonical.ubuntuinstaller.UbuntuInstallService.GET_CHANNEL_LIST";
+    // Download latest release from given channel
     public static final String DOWNLOAD_RELEASE = "com.canonical.ubuntuinstaller.UbuntuInstallService.DOWNLOAD_RELEASE";
-    public static final String DOWNLOAD_RELEASE_EXTRA_CHANNEL = "channel";
+    public static final String DOWNLOAD_RELEASE_EXTRA_CHANNEL_ALIAS = "alias";
+    public static final String DOWNLOAD_RELEASE_EXTRA_CHANNEL_URL = "url";
     public static final String CANCEL_DOWNLOAD = "com.canonical.ubuntuinstaller.UbuntuInstallService.CANCEL_DOWNLOAD";
-    public static final String REMOVE_DOWNLOAD = "com.canonical.ubuntuinstaller.UbuntuInstallService.REMOVE_DOWNLOADED";
+    public static final String PAUSE_DOWNLOAD = "com.canonical.ubuntuinstaller.UbuntuInstallService.PAUSE_DOWNLOAD";
+    public static final String RESUME_DOWNLOAD = "com.canonical.ubuntuinstaller.UbuntuInstallService.RESUME_DOWNLOAD";
+    public static final String CLEAN_DOWNLOAD = "com.canonical.ubuntuinstaller.UbuntuInstallService.CLEAN_DOWNLOADED";
     public static final String IS_RELEADY_TO_INSTALL = "com.canonical.ubuntuinstaller.UbuntuInstallService.IS_READY_TO_INSTALL";
     public static final String INSTALL_UBUNTU = "com.canonical.ubuntuinstaller.UbuntuInstallService.INSTALL_UBUNTU";
-
+    public static final String UNINSTALL_UBUNTU = "com.canonical.ubuntuinstaller.UbuntuInstallService.UINSTALL_UBUNTU";
+    public static final String DELETE_UBUNTU_USER_DATA = "com.canonical.ubuntuinstaller.UbuntuInstallService.DELETE_USER_DATA";
+    
+    // =================================================================================================
     // Service broadcast
+    // =================================================================================================
+    public static final String AVAILABLE_CHANNELS = "com.canonical.ubuntuinstaller.UbuntuInstallService.AVAILABLE_CHANNELS";
+    public static final String AVAILABLE_CHANNELS_EXTRA_CHANNELS = "channels"; // HashMap<String,String> channel aliases and json url
     public static final String DOWNLOAD_RESULT = "com.canonical.ubuntuinstaller.UbuntuInstallService.DOWNLOAD_RESULT";
     public static final String DOWNLOAD_RESULT_EXTRA_INT = "res_int"; // 0-success, -1 fail
     public static final String DOWNLOAD_RESULT_EXTRA_STR = "res_str"; // empty for success, or error text
@@ -55,8 +99,11 @@ public class UbuntuInstallService extends IntentService {
 	public static final String READY_TO_INSTALL = "com.canonical.ubuntuinstaller.UbuntuInstallService.READY_TO_INSTALL";
 	public static final String READY_TO_INSTALL_EXTRA_READY = "ready"; // boolean, true if ready
 	
+    // =================================================================================================
 	// Download url strings
+    // =================================================================================================
     private static final String BASE_URL = "http://system-image.ubuntu.com";
+    private static final String CHANNELS_JSON = "/channels.json";
     private static final String URL_IMAGE_MASTER = "gpg/image-master";
     private static final String URL_IMAGE_SIGNING = "gpg/image-signing";
     private static final String URL_DEVICE_IMAGE_BASE = "pool/device";
@@ -65,7 +112,9 @@ public class UbuntuInstallService extends IntentService {
     private static final String ASC_SUFFIX = ".asc";
     private static final String IMAGE_SUFFIX = "tar.xz";
     
+    // =================================================================================================
     // Packed assets
+    // =================================================================================================
     private static final String BUSYBOX = "busybox";
     private static final String GPG = "gpg";
     private static final String ANDROID_LOOP_MOUNT = "aloopmount";
@@ -73,8 +122,9 @@ public class UbuntuInstallService extends IntentService {
     private static final String ARCHIVE_MASTER = "archive-master.tar.xz";
     private static final String ARCHIVE_MASTER_ASC = "archive-master.tar.xz.asc";
 
-
+    // =================================================================================================
     // Update command file constants
+    // =================================================================================================
     String UPDATE_COMMAND = "update_command";
     String COMMAND_FORMAT = "format";
     String COMMAND_MOUNT = "mount";
@@ -83,7 +133,6 @@ public class UbuntuInstallService extends IntentService {
     String COMMAND_UPDATE = "update";
     String PARTITION_DATA = "data";
     String PARTITION_SYSTEM = "system";
-
     
 	// other constants
     private static final String RELEASE_FOLDER = "/ubuntu_release";
@@ -92,6 +141,12 @@ public class UbuntuInstallService extends IntentService {
     private String mRootOfWorkPath;
     private boolean mIsCanceled;
     private int mDownloadProgress;
+    
+	public class Channel {
+		String alias;
+		File[] files;
+		boolean hiden;
+	}
 	
 	public UbuntuInstallService() {
 		super("UbuntuInstallService");
@@ -127,19 +182,74 @@ public class UbuntuInstallService extends IntentService {
     protected void onHandleIntent(Intent intent) {
         String action = intent.getAction();
         Intent result = null;
-        if (action.equals(DOWNLOAD_RELEASE)) {
+        if (action.equals(GET_CHANNEL_LIST)) {
+        	result = doGetChannelList(intent);
+        } else if (action.equals(DOWNLOAD_RELEASE)) {
         	result = doDownloadRelease(intent);
         } else if (action.equals(CANCEL_DOWNLOAD)) {
         	// TODO: handle cancel download
-        } else if (action.equals(REMOVE_DOWNLOAD)) {
+        } else if (action.equals(PAUSE_DOWNLOAD)) {
+       
+        } else if (action.equals(RESUME_DOWNLOAD)) {
+
+        } else if (action.equals(CLEAN_DOWNLOAD)) {
         	result = doRemoreDownload(intent);
         } else if (action.equals(IS_RELEADY_TO_INSTALL)) {
         	result = checkifReadyToInstall(intent);
         } else if (action.equals(INSTALL_UBUNTU)) {
         	result = doInstallUbuntu(intent);
+        } else if (action.equals(UNINSTALL_UBUNTU)) {
+        } else if (action.equals(DELETE_UBUNTU_USER_DATA)) {    
+
         } else {
-        }
+        }        
         sendBroadcast(result);
+    }
+    
+    private Intent doGetChannelList(Intent intent) {
+    	Intent result = new Intent(AVAILABLE_CHANNELS);
+    	// 
+    	HashMap<String, String> channels= new HashMap<String, String>();
+    	boolean includeHidden = getSharedPreferences( SHARED_PREF, Context.MODE_PRIVATE).getBoolean(PREF_KEY_DEVELOPER, false);
+    	String deviceModel = "mako"; // TODO: get device from build properties
+    	String channelJsonStr = Utils.httpDownload(BASE_URL + CHANNELS_JSON);
+    	if (channelJsonStr != null) {
+    		JSONObject list;
+			try {
+				list = (JSONObject) new JSONTokener(channelJsonStr).nextValue();
+				Iterator<String> keys = list.keys();
+			    while(keys.hasNext()){
+			        String key = keys.next();
+			        JSONObject channel = list.optJSONObject(key);
+			        if (channel != null) {
+				        JSONObject devices = channel.optJSONObject("devices");
+				        if (devices != null) {
+				        	JSONObject device = devices.optJSONObject(deviceModel);
+				        	if (device != null) {
+				        		String url = device.optString("index");
+				        		if (url != null) {
+				        			// bingo, add to list if not hidden or developer
+							        boolean hidden = channel.optBoolean("hiden"); // by default not hidden
+							        String alias = channel.optString("alias");
+							        if (alias == null || alias.equals("")) {
+							        	alias = key; // use key instead
+							        }
+				        			Log.v(TAG, "Channel:" + alias + "  url:" + url);			        
+				        			if (!hidden || includeHidden) {
+				        				channels.put(alias, url);
+				        			}
+						        }
+				        	}
+				        }
+			        }
+			    }				
+			} catch (JSONException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+    	}
+    	result.putExtra(AVAILABLE_CHANNELS_EXTRA_CHANNELS, channels);
+    	return result;
     }
     
     private Intent checkifReadyToInstall(Intent intent) {
@@ -183,12 +293,12 @@ public class UbuntuInstallService extends IntentService {
 	        File supportingFiles = new File(rootFolder, RELEASE_FOLDER);
 	        broadcastProgress(INSTALL_PROGRESS, 1, "Extracting supporting files");
 	        try {
-	            extractExecutableAsset(this, BUSYBOX, supportingFiles.toString(), true);
-	            extractExecutableAsset(this, GPG, supportingFiles.toString(), true);
-	            extractExecutableAsset(this, UPDATE_SCRIPT, supportingFiles.toString(), true);
-	            extractExecutableAsset(this, ANDROID_LOOP_MOUNT, supportingFiles.toString(), true);
-	            extractExecutableAsset(this, ARCHIVE_MASTER, supportingFiles.toString(), false);
-	            extractExecutableAsset(this, ARCHIVE_MASTER_ASC, supportingFiles.toString(), false);
+	            Utils.extractExecutableAsset(this, BUSYBOX, supportingFiles.toString(), true);
+	            Utils.extractExecutableAsset(this, GPG, supportingFiles.toString(), true);
+	            Utils.extractExecutableAsset(this, UPDATE_SCRIPT, supportingFiles.toString(), true);
+	            Utils.extractExecutableAsset(this, ANDROID_LOOP_MOUNT, supportingFiles.toString(), true);
+	            Utils.extractExecutableAsset(this, ARCHIVE_MASTER, supportingFiles.toString(), false);
+	            Utils.extractExecutableAsset(this, ARCHIVE_MASTER_ASC, supportingFiles.toString(), false);
 	        } catch (IOException e) {
 	            e.printStackTrace();
 	            result.putExtra(INSTALL_RESULT_EXTRA_INT, -1);
@@ -202,7 +312,7 @@ public class UbuntuInstallService extends IntentService {
 	            DataOutputStream os = new DataOutputStream(process.getOutputStream());
 	            os.writeBytes("sh " + UPDATE_SCRIPT + " " + updateCommand + "\n"); 
 	            // close terminal
-	            os.writeBytes("Exit\n");
+	            os.writeBytes("exit\n");
 	            os.flush();
 	            InputStream is = process.getInputStream();
 	            int read = 0;
@@ -249,8 +359,9 @@ public class UbuntuInstallService extends IntentService {
 
         SharedPreferences.Editor editor = pref.edit();
         editor.putString(PREF_KEY_UPDATE_COMMAND, "");
-        String channel = pref.getString(PREF_KEY_DOWNLOADED_CHANNEL,"");
-        editor.putString(PREF_KEY_INSTALLED_CHANNEL, channel);
+        editor.putString(PREF_KEY_INSTALLED_CHANNEL_ALIAS, pref.getString(PREF_KEY_DOWNLOADED_CHANNEL_ALIAS,""));
+        editor.putString(PREF_KEY_INSTALLED_CHANNEL_JSON, pref.getString(PREF_KEY_DOWNLOADED_CHANNEL_JSON,""));
+        editor.putInt(PREF_KEY_INSTALLED_VERSION, pref.getInt(PREF_KEY_DOWNLOADED_VERSION, -1));
         editor.commit();
 
         result.putExtra(INSTALL_RESULT_EXTRA_INT, 0);
@@ -264,25 +375,35 @@ public class UbuntuInstallService extends IntentService {
         try {
             File rootFolder = new File(mRootOfWorkPath);
             
-            // TODO: replace with dynamic tokens
-            String channel = intent.getStringExtra(DOWNLOAD_RELEASE_EXTRA_CHANNEL);
-            
-            String RELEASE_UBUNTU_TOKEN = "b353d65b0369a5203757726d5c70b1ff3e601f05605c38fc55f92c584f19f6a1";
-            String RELEASE_DEVICE_TOKEN = "68eeb610020edc5d49fb5e22c2e03ca3b88f7c817894e74fd660ac56635a8eb9";
-            String RELEASE_VERSION_TOKEN = "version-32";
-            
+            // first get from JSON list of files to download
+            String alias = intent.getStringExtra(DOWNLOAD_RELEASE_EXTRA_CHANNEL_ALIAS);
+            String jsonUrl = intent.getStringExtra(DOWNLOAD_RELEASE_EXTRA_CHANNEL_URL);
+        	String jsonStr = Utils.httpDownload(BASE_URL + jsonUrl);
+        	List<Image> releases = JsonChannelParser.getAvailableReleases(jsonStr, JsonChannelParser.ReleaseType.FULL);
+        	if (releases.size() == 0 || releases.get(0).files.length == 0 ){
+        		// something is wrong, empty release
+                Log.e(TAG, "Empty releas");
+                result.putExtra(DOWNLOAD_RESULT_EXTRA_INT, -1);
+                result.putExtra(DOWNLOAD_RESULT_EXTRA_STR, "Empty release");
+                return result;
+        	}
+        	// get first since that is most recent one
+        	JsonChannelParser.File updateFiles[] = releases.get(0).files;       	
+            // sort update files
+            List<JsonChannelParser.File> filesArray = new LinkedList<JsonChannelParser.File>();
+            for(JsonChannelParser.File f: updateFiles) {
+            	filesArray.add(f);
+            }
+            Collections.sort(filesArray, JsonChannelParser.fileComparator());
+            String updateFilenames[] = new String[updateFiles.length * 2];
+
+        	// get list of keyrings to download
             String keyrings[] = {
                     String.format("%s/%s.%s",BASE_URL, URL_IMAGE_MASTER, IMAGE_SUFFIX ),
                     String.format("%s/%s.%s",BASE_URL, URL_IMAGE_SIGNING, IMAGE_SUFFIX),                    
-            };
-            String keyringsFilenames[] = new String[keyrings.length];
-            String updateImages[] = {
-                    String.format("%s/%s-%s.%s", BASE_URL, URL_UBUNTU_IMAGE_BASE, RELEASE_UBUNTU_TOKEN, IMAGE_SUFFIX),
-                    String.format("%s/%s-%s.%s", BASE_URL, URL_DEVICE_IMAGE_BASE, RELEASE_DEVICE_TOKEN, IMAGE_SUFFIX),
-                    String.format("%s/%s/%s.%s", BASE_URL, URL_MAKO_DEVEL, RELEASE_VERSION_TOKEN, IMAGE_SUFFIX)
-            };
-            String updateFilenames[] = new String[updateImages.length];
-                    
+            };            
+            String keyringsFilenames[] = new String[keyrings.length * 2];
+                              
             // First delete old release if it exists
             String s = deleteRelease();
             if (s != null) {
@@ -303,13 +424,15 @@ public class UbuntuInstallService extends IntentService {
                 for(String url : keyrings){
                     keyringsFilenames[i++] = doDownloadUrl(new URL(url),release);
                     // download signature
-                    doDownloadUrl(new URL(url+ASC_SUFFIX),release);
+                    keyringsFilenames[i++] = doDownloadUrl(new URL(url+ASC_SUFFIX),release);
                 }
+                
+                // download all update images
                 i = 0;
-                for(String url : updateImages) {
-                    updateFilenames[i++] = doDownloadUrl(new URL(url),release);
-                    // download signature
-                    doDownloadUrl(new URL(url+ASC_SUFFIX),release);
+                for (JsonChannelParser.File file : filesArray){
+                	String url = BASE_URL + file.path;
+                	updateFilenames[i++] = doDownloadUrl(new URL(BASE_URL + file.path),release);
+                	updateFilenames[i++] = doDownloadUrl(new URL(BASE_URL + file.signature),release);
                 }
             } catch (MalformedURLException e) {
                 Log.e(TAG, "Failed to download release:", e);
@@ -339,15 +462,26 @@ public class UbuntuInstallService extends IntentService {
                     fos.write((String.format("%s %s\n", COMMAND_FORMAT, PARTITION_DATA)).getBytes());
                     fos.write((String.format("%s %s\n", COMMAND_FORMAT, PARTITION_SYSTEM)).getBytes());
                     // load keyrings
-                    for (String keyring : keyringsFilenames ) {
-                        fos.write((String.format("%s %s %s%s\n", 
-                                COMMAND_LOAD_KEYRING, keyring, keyring, ASC_SUFFIX )).getBytes());
+                    int i = 0;
+                    while (i < keyringsFilenames.length) {
+                    	fos.write((String.format("%s %s %s\n", 
+                                COMMAND_LOAD_KEYRING, 
+                                keyringsFilenames[i++], 
+                                keyringsFilenames[i++])).getBytes());
                     }
                     fos.write((String.format("%s %s\n", COMMAND_MOUNT, PARTITION_SYSTEM)).getBytes());
+
                     // add update commands
-                    for (String image : updateFilenames) {
+                    i = 0;
+                    while (i < updateFilenames.length ) {
+                    	fos.write((String.format("%s %s %s\n", 
+                                COMMAND_UPDATE, 
+                                updateFilenames[i++], 
+                                updateFilenames[i++])).getBytes());
+                    }
+                    for (String file : updateFilenames) {
                         fos.write((String.format("%s %s %s%s\n", 
-                                COMMAND_UPDATE, image, image, ASC_SUFFIX )).getBytes());                        
+                                COMMAND_UPDATE, file, file, ASC_SUFFIX )).getBytes());                        
                     }
                     fos.write((String.format("%s %s\n", COMMAND_UMOUNT, PARTITION_SYSTEM)).getBytes());
                     fos.flush();
@@ -364,7 +498,9 @@ public class UbuntuInstallService extends IntentService {
             SharedPreferences pref = getSharedPreferences( SHARED_PREF, Context.MODE_PRIVATE);
             SharedPreferences.Editor editor = pref.edit();
             editor.putString(PREF_KEY_UPDATE_COMMAND, updateCommand.getAbsolutePath());
-            editor.putString(PREF_KEY_DOWNLOADED_CHANNEL, channel);
+            editor.putString(PREF_KEY_DOWNLOADED_CHANNEL_ALIAS, alias);
+            editor.putString(PREF_KEY_DOWNLOADED_CHANNEL_JSON, jsonUrl);
+            editor.putInt(PREF_KEY_DOWNLOADED_VERSION, releases.get(0).version);
             editor.commit();
             
         } finally {
@@ -378,7 +514,7 @@ public class UbuntuInstallService extends IntentService {
 
     private String doDownloadUrl(URL url, File targerLocation) throws MalformedURLException,
     FileNotFoundException, IOException {
-
+    	Log.v(TAG, "Downloading:" + url.toString());
         URLConnection conn = url.openConnection();
         String fileName = URLUtil.guessFileName(url.toString(), null, null);
         // TODO: update progress accordingly
@@ -407,39 +543,6 @@ public class UbuntuInstallService extends IntentService {
         return fileName;
     }
 
-    public static void extractExecutableAsset(Context context, String filename, 
-    				String destination, Boolean executable) throws IOException {
-        AssetManager am = context.getAssets();
-        File destinationDir = new File(destination);
-        if (!destinationDir.exists()) {
-            // create folder            
-            destinationDir.mkdir();
-        }
-        File file = new File(destinationDir, filename);
-        if (file.exists() && file.isFile()) {
-            file.delete();
-        }
-        
-        InputStream in = am.open(filename);
-        BufferedInputStream bin = new BufferedInputStream(in);
-        
-        FileOutputStream fout = new FileOutputStream(file);
-        
-        byte buffer[] = new byte[10*1024];
-        int bytesRead = bin.read(buffer);
-        while (bytesRead > -1) {
-            fout.write(buffer, 0, bytesRead);
-            bytesRead = bin.read(buffer);
-        }
-        fout.flush();
-        fout.close();
-        
-        bin.close();
-        if (executable) {
-            file.setExecutable(true);
-        }
-    }
-
     /**
      * 
      * @return null if success or error
@@ -450,7 +553,7 @@ public class UbuntuInstallService extends IntentService {
         File release = new File(rootFolder,RELEASE_FOLDER);
         if (release.exists()) {
 	        try {
-	        	String command = "sh rm -rf " + release.getAbsolutePath();
+	        	String command = "rm -rf " + release.getAbsolutePath();
 	            Process p = Runtime.getRuntime().exec(command , null, rootFolder);
 	            try {   
 	                p.waitFor();
@@ -468,7 +571,8 @@ public class UbuntuInstallService extends IntentService {
 	        SharedPreferences pref = getSharedPreferences( SHARED_PREF, Context.MODE_PRIVATE);
 	        SharedPreferences.Editor editor = pref.edit();
 	        editor.putString(PREF_KEY_UPDATE_COMMAND, "");
-	        editor.putString(PREF_KEY_DOWNLOADED_CHANNEL,"");
+	        editor.putString(PREF_KEY_DOWNLOADED_CHANNEL_ALIAS,"");
+	        editor.putString(PREF_KEY_DOWNLOADED_CHANNEL_JSON,"");
 	        editor.commit();
         }
         return null;

@@ -10,13 +10,13 @@
         android:gravity="center_horizontal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Choose value"
+        android:text="@string/channel_picker_dialog_title"
         android:padding="1dip" />
 
     <NumberPicker
         android:id="@+id/text_picker"
         android:layout_centerInParent="true"
-        android:layout_width="100dip"
+        android:layout_width="wrap_content"
         android:layout_height="match_parent" />
 
 </LinearLayout>

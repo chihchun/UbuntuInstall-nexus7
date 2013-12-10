@@ -14,19 +14,10 @@
         android:layout_height="wrap_content"
         android:text="@string/welcome_world" />
     <Button
-        android:id="@+id/downloadBbutton"
+        android:id="@+id/installUbuntuButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_below="@+id/titleText"
-        android:layout_centerHorizontal="true"
-        android:layout_marginTop="41dp"
-        android:text="@string/download_button_label" />
-
-    <Button
-        android:id="@+id/installButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_below="@+id/downloadBbutton"
         android:layout_centerHorizontal="true"
         android:layout_marginTop="41dp"
         android:text="@string/install_button_label" />
@@ -35,7 +26,7 @@
         android:id="@+id/rebootToUbuntu"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_below="@+id/installButton"
+        android:layout_below="@+id/installUbuntuButton"
         android:layout_centerHorizontal="true"
         android:layout_centerVertical="true"
         android:text="@string/reboot_button_label" />
