@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.canonical.ubuntuinstaller"
+    package="com.canonical.ubuntu.installer"
     android:versionCode="1"
     android:versionName="1.0" >
 
@@ -28,9 +28,9 @@
         android:icon="@drawable/ic_launcher"
         android:label="@string/app_name"
         android:screenOrientation="portrait"
-         android:theme="@android:style/Theme.Holo" >
+        android:theme="@android:style/Theme.Holo" >
         <activity
-            android:name="com.canonical.ubuntuinstaller.MainActivity"
+            android:name=".InstallActivity"
             android:screenOrientation="portrait"
             android:label="@string/app_name" >
             <intent-filter>
@@ -39,7 +39,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <service android:name="com.canonical.ubuntuinstaller.UbuntuInstallService">
+        <activity
+            android:name=".LaunchActivity"
+            android:screenOrientation="portrait"
+            android:label="@string/app_name">
+        </activity>
+        
+        <service android:name="com.canonical.ubuntu.installer.UbuntuInstallService">
             <intent-filter>
                 <action android:name="com.canonical.ubuntuinstaller.UbuntuInstallService.GET_CHANNEL_LIST" />
                 <action android:name="com.canonical.ubuntuinstaller.UbuntuInstallService.DOWNLOAD_RELEASE" />

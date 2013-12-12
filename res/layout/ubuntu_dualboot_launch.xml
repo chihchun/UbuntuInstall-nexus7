@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    xmlns:u1f="http://schemas.android.com/apk/res/com.canonical.ubuntuinstaller"
+    xmlns:u1f="http://schemas.android.com/apk/res/com.canonical.ubuntu.installer"
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
     android:layout_alignParentLeft="true"
@@ -96,6 +96,36 @@
                 android:layout_height="wrap_content"
                 android:layout_margin="2dp"
                 android:layout_toRightOf="@id/channel_label"
+                android:singleLine="true"
+                android:text="add version"
+                android:textAppearance="?android:attr/textAppearanceMedium"
+                android:textColor="@color/text"
+                u1f:customFont="Ubuntu-R.ttf" />
+        </RelativeLayout>
+        
+        <RelativeLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" >
+
+            <com.canonical.ubuntu.widget.UbuntuTextView
+                android:id="@+id/description_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentLeft="true"
+                android:layout_centerHorizontal="true"
+                android:layout_margin="2dp"
+                android:text="Info:"
+                android:textAppearance="?android:attr/textAppearanceMedium"
+                android:textColor="@color/ubuntuorange"
+                android:textStyle="bold"
+                u1f:customFont="Ubuntu-R.ttf" />
+
+            <com.canonical.ubuntu.widget.UbuntuTextView
+                android:id="@+id/description"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="2dp"
+                android:layout_toRightOf="@id/description_label"
                 android:singleLine="true"
                 android:text="add version"
                 android:textAppearance="?android:attr/textAppearanceMedium"

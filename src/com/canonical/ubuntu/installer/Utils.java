@@ -1,4 +1,4 @@
-package com.canonical.ubuntuinstaller;
+package com.canonical.ubuntu.installer;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
@@ -11,6 +11,7 @@ import java.io.OutputStream;
 import java.io.Reader;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.util.List;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -21,11 +22,20 @@ import org.apache.http.impl.client.DefaultHttpClient;
 import android.content.Context;
 import android.content.res.AssetManager;
 import android.util.Log;
+import android.widget.Toast;
 
 public class Utils {
 
 	private final static String TAG = "Utils";
-
+	private final static int SIGNATURE_SIZE = 490;
+	
+	
+	public static void showToast(Context context, String message) {
+        int duration = Toast.LENGTH_SHORT;
+        Toast toast = Toast.makeText(context, message, duration);
+        toast.show();
+    }
+	
 	public static String httpDownload(String url) { // return null as error happens
 		HttpClient httpclient = new DefaultHttpClient();
 		// Prepare a request object
@@ -149,5 +159,16 @@ public class Utils {
 		if (executable) {
 		    file.setExecutable(true);
 		}
+    }
+    
+    public static int calculateDownloadSize(List<JsonChannelParser.File> files) {
+    	int size = 0;
+    	for(JsonChannelParser.File f : files) {
+    		size += f.size;
+    		if (!f.signature.equals("")){
+    			size += SIGNATURE_SIZE;
+    		}
+    	}
+    	return size;
     }
 }

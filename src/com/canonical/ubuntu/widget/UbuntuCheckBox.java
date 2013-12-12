@@ -23,7 +23,7 @@ import android.graphics.Typeface;
 import android.util.AttributeSet;
 import android.widget.CheckBox;
 
-import com.canonical.ubuntuinstaller.R;
+import com.canonical.ubuntu.installer.R;
 
 public class UbuntuCheckBox extends CheckBox {
 

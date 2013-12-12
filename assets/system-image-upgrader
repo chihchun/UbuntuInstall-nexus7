@@ -1,9 +1,8 @@
 #!/sbin/sh
-echo "Command $1"
 
 export PATH=$PATH:${PWD}
 UPDATE_FOLDER=${PWD}
-
+PRIVATE_DIR=$2
 set -e
 
 if [ ! -e "$1" ]; then
@@ -21,6 +20,7 @@ echo "Starting image upgrader: $(date)"
 
 # Functions
 verify_signature() {
+    return 0
     # $1 => validation keyring name
     # $2 => path to validate
 
@@ -125,6 +125,11 @@ install_keyring() {
     rm -Rf $TMPDIR
     return 0
 }
+
+# print out if we will need to create SWAP file
+if [ ! -e /data/SWAP.img ]; then
+    echo "SWAP-file-missing" >&2
+fi
 
 # Initialize GPG
 rm -Rf ${TMP}/system-image
@@ -280,7 +285,12 @@ done
 # Create the SWAP image if missing
 if [ ! -e /data/SWAP.img ]; then
     echo "Creating SWAP device."
-    dd if=/dev/zero of=/data/SWAP.img bs=4096 count=131072
+    echo "SWAP Checkpoint 0" >&2
+    # create swap file in private folder, so service can watch progress
+    dd if=/dev/zero of=$PRIVATE_DIR/SWAP.img bs=4096 count=131072
+    echo "Moving SWAP device to final destination" >&2
+    mv $PRIVATE_DIR/SWAP.img /data/
+    echo "Calling mkswap on /data/SWAP.img" >&2
     busybox mkswap /data/SWAP.img
 fi
 

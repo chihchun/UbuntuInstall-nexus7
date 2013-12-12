@@ -22,8 +22,7 @@ import android.content.res.TypedArray;
 import android.graphics.Typeface;
 import android.util.AttributeSet;
 import android.widget.TextView;
-
-import com.canonical.ubuntuinstaller.R;
+import com.canonical.ubuntu.installer.R;
 
 public class UbuntuTextView extends TextView {
 

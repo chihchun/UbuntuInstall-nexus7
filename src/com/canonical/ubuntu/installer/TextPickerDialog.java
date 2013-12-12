@@ -1,4 +1,6 @@
-package com.canonical.ubuntuinstaller;
+package com.canonical.ubuntu.installer;
+
+import com.canonical.ubuntu.installer.R;
 
 import android.app.AlertDialog;
 import android.content.Context;
@@ -7,6 +9,7 @@ import android.content.DialogInterface.OnClickListener;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.CheckBox;
 import android.widget.NumberPicker;
 import android.widget.TextView;
 
@@ -17,19 +20,21 @@ public class TextPickerDialog extends AlertDialog implements OnClickListener {
     private static final String NUMBER = "number";
 
     /**
-     * Callback interface called once called makes selection 
+     * Callback interface called once user makes selection 
      */
-    public interface OnTextSetListener {
+    public interface OnChannelPicktListener {
 
         /**
-         * @param text The text that was set.
+         * @param channel selected channel
+         * @param bootstrap status of bootstrap option
          */
-        void onTextSet(String text);
+        void onChannelPicked(String channel, boolean bootstrap);
     }
 
     private final NumberPicker mTextPicker;
     private final TextView mValueTitle;
-    private final OnTextSetListener mCallback;
+    private final OnChannelPicktListener mCallback;
+    private final CheckBox mBootstrap;
 
 
     /**
@@ -41,15 +46,14 @@ public class TextPickerDialog extends AlertDialog implements OnClickListener {
      * @param defaultValue index of the default value
      */
     public TextPickerDialog(Context context,
-    		OnTextSetListener callBack,
-            int dialogTitle,
-            int pickerTitle,
-            String[] values,
-            int defaultValue) {
+    		final OnChannelPicktListener callBack,
+            final String[] values,
+            final int defaultValue,
+            final boolean bootstrap) {
         super(context);
         mCallback = callBack;
 
-        setTitle(dialogTitle);
+        setTitle(R.string.channel_picker_dialog_title);
 
         setButton(DialogInterface.BUTTON_POSITIVE, "Set", this);
         setButton(DialogInterface.BUTTON_NEGATIVE, "Cancel",
@@ -62,7 +66,9 @@ public class TextPickerDialog extends AlertDialog implements OnClickListener {
 
         mTextPicker = (NumberPicker) view.findViewById(R.id.text_picker);
         mValueTitle = (TextView) view.findViewById(R.id.text_picker_title);
-        mValueTitle.setText(pickerTitle);
+        mValueTitle.setText(R.string.channel_picker_title);
+        mBootstrap = (CheckBox) view.findViewById(R.id.checkBootstrap);
+        mBootstrap.setChecked(bootstrap);
 
         // initialise state 
         mTextPicker.setMinValue(0); // we start from 0
@@ -72,12 +78,15 @@ public class TextPickerDialog extends AlertDialog implements OnClickListener {
 
         mTextPicker.setWrapSelectorWheel(false);  // no wrapping        
         mTextPicker.setDisplayedValues(values);
+        getButton(BUTTON_POSITIVE).setText(R.string.action_install); 
     }
 
     public void onClick(DialogInterface dialog, int which) {
         if (mCallback != null) {
             mTextPicker.clearFocus();
-            mCallback.onTextSet(mTextPicker.getDisplayedValues()[mTextPicker.getValue()]);
+            // store extra 
+            mCallback.onChannelPicked(mTextPicker.getDisplayedValues()[mTextPicker.getValue()],
+            		mBootstrap.isChecked());
             dialog.dismiss();
         }
     }
