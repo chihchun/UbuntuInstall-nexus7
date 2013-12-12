@@ -78,7 +78,8 @@ public class TextPickerDialog extends AlertDialog implements OnClickListener {
 
         mTextPicker.setWrapSelectorWheel(false);  // no wrapping        
         mTextPicker.setDisplayedValues(values);
-        getButton(BUTTON_POSITIVE).setText(R.string.action_install); 
+        // getButton(BUTTON_POSITIVE).setText(R.string.action_install);
+        // TODO: change positive button to be Install 
     }
 
     public void onClick(DialogInterface dialog, int which) {
