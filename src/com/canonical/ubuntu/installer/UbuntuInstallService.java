@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -25,7 +26,7 @@ import android.app.IntentService;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.os.AsyncTask;
+import android.os.Build;
 import android.os.PowerManager;
 import android.util.Log;
 import android.webkit.URLUtil;
@@ -170,7 +171,6 @@ public class UbuntuInstallService extends IntentService {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-
         if (intent.getAction().equals(CANCEL_DOWNLOAD)) {
             // set the cancel flag, but let it remove downloaded files on worker thread
             mIsCanceled = true;
@@ -183,25 +183,34 @@ public class UbuntuInstallService extends IntentService {
         String action = intent.getAction();
         Intent result = null;
         if (action.equals(GET_CHANNEL_LIST)) {
+            Log.d(TAG, this.toString() + ": GET_CHANNEL_LIST");
             result = doGetChannelList(intent);
         } else if (action.equals(DOWNLOAD_RELEASE)) {
+            Log.d(TAG, this.toString() + ": DOWNLOAD_RELEASE");
             result = doDownloadRelease(intent);
         } else if (action.equals(CANCEL_DOWNLOAD)) {
+            Log.d(TAG, this.toString() + ": CANCEL_DOWNLOAD");
             // TODO: handle download
         } else if (action.equals(PAUSE_DOWNLOAD)) {
+            Log.d(TAG, this.toString() + ": PAUSE_DOWNLOAD");
             // TODO: handle download
         } else if (action.equals(RESUME_DOWNLOAD)) {
+            Log.d(TAG, this.toString() + ": RESUME_DOWNLOAD");
             // TODO: handle download
         } else if (action.equals(CLEAN_DOWNLOAD)) {
+            Log.d(TAG, this.toString() + ": CLEAN_DOWNLOAD");
             result = doRemoreDownload(intent);
         } else if (action.equals(IS_RELEADY_TO_INSTALL)) {
+            Log.d(TAG, this.toString() + ": IS_RELEADY_TO_INSTALL");
             result = checkifReadyToInstall(intent);
         } else if (action.equals(INSTALL_UBUNTU)) {
+            Log.d(TAG, this.toString() + ": INSTALL_UBUNTU");
             result = doInstallUbuntu(intent);
         } else if (action.equals(UNINSTALL_UBUNTU)) {
+            Log.d(TAG, this.toString() + ": UNINSTALL_UBUNTU");
             result = doUninstallUbuntu(intent);
-        } else if (action.equals(DELETE_UBUNTU_USER_DATA)) {    
-
+        } else if (action.equals(DELETE_UBUNTU_USER_DATA)) {  
+            Log.d(TAG, this.toString() + ": DELETE_UBUNTU_USER_DATA");
         } else {
         }
         if (result != null) {
@@ -214,7 +223,7 @@ public class UbuntuInstallService extends IntentService {
         // 
         HashMap<String, String> channels= new HashMap<String, String>();
         boolean includeHidden = getSharedPreferences( SHARED_PREF, Context.MODE_PRIVATE).getBoolean(PREF_KEY_DEVELOPER, false);
-        String deviceModel = "mako"; // TODO: get device from build properties
+        String deviceModel = Build.BOARD.toLowerCase(Locale.US);
         String channelJsonStr = Utils.httpDownload(BASE_URL + CHANNELS_JSON);
         if (channelJsonStr != null) {
             JSONObject list;

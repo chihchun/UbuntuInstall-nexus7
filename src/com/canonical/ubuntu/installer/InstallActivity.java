@@ -27,6 +27,15 @@ public class InstallActivity extends Activity {
     private static final String TAG = "UbuntuInstaller";
 
     private UbuntuButton mInstallButton;
+    
+    private final int STATUS_NORMAL = 0;
+    private final int STATUS_CAN_NOT_INSTALL = 1;
+    private final int STATUS_CAN_INSTALL = 2;
+    private final int STATUS_INSTALLING = 3;
+    private final int STATUS_CAN_RESUME = 4;
+    
+    private int status = STATUS_NORMAL;
+    
     private ProgressBar mProgressBar;
     private TextView mProgressText;
     
@@ -75,6 +84,7 @@ public class InstallActivity extends Activity {
             mInstallButton.setEnabled(false);
         } else {
             mInstallButton.setText(R.string.install_button_label_install);
+            status = STATUS_CAN_INSTALL;
             mInstallButton.setEnabled(true);
         }
         // ask if we are ready to install - response will update UI
@@ -118,7 +128,12 @@ public class InstallActivity extends Activity {
         public void onClick(View v) {
             // do we need to download release, or there is already one downloaded
             // user might have missed SU request, then we have downloaded release and we just need deploy it
-            // TODO: we will need to handle also download resume 
+            // TODO: we will need to handle also download resume
+            if (status == STATUS_INSTALLING) {
+                Intent startInstall = new Intent(UbuntuInstallService.CANCEL_DOWNLOAD);
+                startService(startInstall);
+                return;
+            }
             if (mReadyToInstall) {
                 
                 startInstallationIfPossible();
@@ -133,6 +148,7 @@ public class InstallActivity extends Activity {
             } else {
                 // there are no channels to pick from, this was mistake, disable button
                 mInstallButton.setText(Html.fromHtml(getResources().getString(R.string.install_button_label_no_channel)));
+                status = STATUS_CAN_NOT_INSTALL;
                 mInstallButton.setEnabled(false);
             }
         }
@@ -173,6 +189,7 @@ public class InstallActivity extends Activity {
             mProgressText.setText(R.string.downloading_release);
             mProgressBar.setEnabled(true);
             mInstallButton.setText(R.string.install_button_label_cancel);
+            status = STATUS_INSTALLING;
         }
     };
 
@@ -190,10 +207,12 @@ public class InstallActivity extends Activity {
                             intent.getSerializableExtra(UbuntuInstallService.AVAILABLE_CHANNELS_EXTRA_CHANNELS);
                     if (0 != mAvailableChannels.size()) {
                         mInstallButton.setText(R.string.install_button_label_install);
+                        status = STATUS_CAN_INSTALL;
                         mInstallButton.setEnabled(true);
                     } else {
                         // we have no channels to choose from
                         mInstallButton.setText(Html.fromHtml(getResources().getString(R.string.install_button_label_no_channel)));
+                        status = STATUS_CAN_NOT_INSTALL;
                         mInstallButton.setEnabled(false);                        
                     }
                 }
@@ -251,6 +270,7 @@ public class InstallActivity extends Activity {
                     updateInfoOnUiThread(reason);
                     mInstallButton.setEnabled(true);
                     mInstallButton.setText(R.string.install_button_label_install);
+                    status = STATUS_CAN_INSTALL;
                     // TODO: handle this better way
                 }
             
@@ -262,6 +282,7 @@ public class InstallActivity extends Activity {
                         UbuntuInstallService.READY_TO_INSTALL_EXTRA_READY, false);
                 if (mReadyToInstall) {
                     mInstallButton.setText(R.string.install_button_label_resume);
+                    status = STATUS_CAN_RESUME;
                     mInstallButton.setEnabled(true);
                 }
             } else if (action.equals(UbuntuInstallService.VERSION_UPDATE)) {
