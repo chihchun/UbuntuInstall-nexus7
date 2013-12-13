@@ -55,8 +55,10 @@
                 <action android:name="com.canonical.ubuntuinstaller.UbuntuInstallService.CLEAN_DOWNLOADED" />
                 <action android:name="com.canonical.ubuntuinstaller.UbuntuInstallService.IS_READY_TO_INSTALL" />
                 <action android:name="com.canonical.ubuntuinstaller.UbuntuInstallService.INSTALL_UBUNTU" />
+                <action android:name="com.canonical.ubuntuinstaller.UbuntuInstallService.CANCEL_INSTALL" />
                 <action android:name="com.canonical.ubuntuinstaller.UbuntuInstallService.UINSTALL_UBUNTU" />
                 <action android:name="com.canonical.ubuntuinstaller.UbuntuInstallService.DELETE_USER_DATA" />
+                <action android:name="com.canonical.ubuntuinstaller.UbuntuInstallService.PROGRESS_STATUS" />
             </intent-filter>
         </service>
     </application>

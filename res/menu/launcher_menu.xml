@@ -1,14 +1,20 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android" >
 
     <item
-        android:id="@+id/action_settings"
-        android:orderInCategory="100"
-        android:showAsAction="never"
-        android:title="@string/action_settings"/>
-    <item
         android:id="@+id/action_uninstall"
         android:orderInCategory="100"
         android:showAsAction="never"
         android:title="@string/action_uninstall"/>
-
+    <item
+        android:id="@+id/action_del_user_data"
+        android:orderInCategory="100"
+        android:showAsAction="never"
+        android:title="@string/action_delete_user_data"/>
+    
+    <item
+        android:id="@+id/action_settings"
+        android:orderInCategory="100"
+        android:showAsAction="never"
+        android:title="@string/action_settings"/>
+    
 </menu>

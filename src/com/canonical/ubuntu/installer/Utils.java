@@ -36,6 +36,12 @@ public class Utils {
         toast.show();
     }
 	
+	public static void showToast(Context context, int message) {
+        int duration = Toast.LENGTH_SHORT;
+        Toast toast = Toast.makeText(context, message, duration);
+        toast.show();
+    }	
+	
 	public static String httpDownload(String url) { // return null as error happens
 		HttpClient httpclient = new DefaultHttpClient();
 		// Prepare a request object

@@ -89,28 +89,58 @@ public class LaunchActivity extends Activity {
         switch (item.getItemId()) {
         case R.id.action_uninstall:
             // show dialog
-        	final boolean delUserData = true;
-            AlertDialog.Builder builder = new AlertDialog.Builder(this);
-            builder.setTitle(R.string.uninstall_dialog_title);
-            builder.setPositiveButton(R.string.action_uninstall, new DialogInterface.OnClickListener() {
-                public void onClick(DialogInterface dialog, int id) {
-                    Intent startUninstall = new Intent(UbuntuInstallService.UNINSTALL_UBUNTU);
-                    startService(startUninstall);
-                    Utils.showToast(getApplicationContext(), "Uninstalling Ubuntu");
-                   }
-               });
-            builder.setMultiChoiceItems(R.array.uninstall_options, new boolean[]{delUserData}, new DialogInterface.OnMultiChoiceClickListener() {
+        final Intent uninstall = new Intent(UbuntuInstallService.UNINSTALL_UBUNTU);
+        createConfirmationDialog(R.string.uninstall_dialog_title, 
+                         R.string.action_uninstall_button,
+                         R.string.cancel,
+                         uninstall,
+                         R.string.uninstalling_ubuntu,
+                         R.array.uninstall_options,
+                         new boolean[]{UbuntuInstallService.DEFAULT_UNINSTALL_DEL_USER_DATA},
+                         new DialogInterface.OnMultiChoiceClickListener() {
                 @Override
                 public void onClick(DialogInterface dialog, int which, boolean isChecked) {
-                	// TODO: wire up delete user data option
+                // we have only one option here
+                uninstall.putExtra(UbuntuInstallService.UNINSTALL_UBUNTU_EXTRA_REMOVE_USER_DATA, isChecked);
                 }
-            });
-            builder.setNegativeButton(R.string.cancel, null);
-            AlertDialog dialog = builder.create();
-            dialog.show();
+            }).show();
             break;
+        case R.id.action_del_user_data:
+        Intent action = new Intent(UbuntuInstallService.DELETE_UBUNTU_USER_DATA);
+        createConfirmationDialog(R.string.action_delete_user_data, 
+                         R.string.action_delete_udata_button,
+                         R.string.cancel,
+                         action,
+                         R.string.deleting_user_data,
+                         -1,
+                         null,
+                         null).show();        
+        break;
         }
         return super.onOptionsItemSelected(item);
+    }
+    
+    private AlertDialog createConfirmationDialog(final int title, 
+                                         final int positiveButton, 
+                                         final int negativeButton, 
+                                         final Intent action,
+                                         final int toastText,
+                                         final int choiceItemsArray,
+                                         final boolean[] defaultChoiceValues,
+                                         final DialogInterface.OnMultiChoiceClickListener choiceClickListener ){
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(title);
+        builder.setPositiveButton(positiveButton, new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {
+                startService(action);
+                Utils.showToast(getApplicationContext(), toastText);
+               }
+           });
+        if (choiceItemsArray != -1) {
+        builder.setMultiChoiceItems(choiceItemsArray, defaultChoiceValues, choiceClickListener);
+        }
+        builder.setNegativeButton(negativeButton, null);
+        return builder.create();
     }
 
     public static void startFrom(Context context) {
@@ -131,12 +161,11 @@ public class LaunchActivity extends Activity {
     
     private void ensureUbuntuIsInstalled() {
         SharedPreferences pref = getSharedPreferences( UbuntuInstallService.SHARED_PREF, Context.MODE_PRIVATE);
-        mUbuntuVersion = new VersionInfo( pref.getStringSet(UbuntuInstallService.PREF_KEY_INSTALLED_VERSION, 
-                                                               new VersionInfo().getSet()));
-
-        if (mUbuntuVersion.getChannelAlias().equals("")) {
+        if (!VersionInfo.hasValidVersion(pref, UbuntuInstallService.PREF_KEY_INSTALLED_VERSION)) {
             // go back to install screen
-            InstallActivity.startFrom(this);
+        InstallActivity.startFrom(this);
+        } else {
+        mUbuntuVersion = new VersionInfo(pref, UbuntuInstallService.PREF_KEY_INSTALLED_VERSION);
         }
     }
     

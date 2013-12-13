@@ -50,7 +50,14 @@ public class UbuntuInstallService extends IntentService {
     public final static String PREF_KEY_DEVELOPER = "developer";
     // Key for int value: estimated number of checkpoints for installation
     public final static String PREF_KEY_ESTIMATED_CHECKPOINTS = "est_checkpoints";
-
+    // Key for boolean
+    
+    
+    // =================================================================================================
+    // Default values to be used
+    // =================================================================================================
+    public final static boolean DEFAULT_UNINSTALL_DEL_USER_DATA = false;
+    public final static boolean DEFAULT_INSTALL_BOOTSTRAP = false;
     // =================================================================================================
     // Service Actions
     // =================================================================================================
@@ -60,16 +67,19 @@ public class UbuntuInstallService extends IntentService {
     public static final String DOWNLOAD_RELEASE = "com.canonical.ubuntuinstaller.UbuntuInstallService.DOWNLOAD_RELEASE";
     public static final String DOWNLOAD_RELEASE_EXTRA_CHANNEL_ALIAS = "alias"; // string
     public static final String DOWNLOAD_RELEASE_EXTRA_CHANNEL_URL = "url";     // string
-    public static final String DOWNLOAD_RELEASE_EXTRA_BOOTSTRAP = "bootstrap"; // boolean 
+    public static final String DOWNLOAD_RELEASE_EXTRA_BOOTSTRAP = "bootstrap"; // boolean
+    public static final String DOWNLOAD_RELEASE_EXTRA_VERSION = "version"; // int
     public static final String CANCEL_DOWNLOAD = "com.canonical.ubuntuinstaller.UbuntuInstallService.CANCEL_DOWNLOAD";
     public static final String PAUSE_DOWNLOAD = "com.canonical.ubuntuinstaller.UbuntuInstallService.PAUSE_DOWNLOAD";
     public static final String RESUME_DOWNLOAD = "com.canonical.ubuntuinstaller.UbuntuInstallService.RESUME_DOWNLOAD";
     public static final String CLEAN_DOWNLOAD = "com.canonical.ubuntuinstaller.UbuntuInstallService.CLEAN_DOWNLOADED";
     public static final String IS_RELEADY_TO_INSTALL = "com.canonical.ubuntuinstaller.UbuntuInstallService.IS_READY_TO_INSTALL";
     public static final String INSTALL_UBUNTU = "com.canonical.ubuntuinstaller.UbuntuInstallService.INSTALL_UBUNTU";
+    public static final String CANCEL_INSTALL = "com.canonical.ubuntuinstaller.UbuntuInstallService.CANCEL_INSTALL";
     public static final String UNINSTALL_UBUNTU = "com.canonical.ubuntuinstaller.UbuntuInstallService.UINSTALL_UBUNTU";
     public static final String UNINSTALL_UBUNTU_EXTRA_REMOVE_USER_DATA = "user_data";
     public static final String DELETE_UBUNTU_USER_DATA = "com.canonical.ubuntuinstaller.UbuntuInstallService.DELETE_USER_DATA";
+    public static final String REQUEST_PROGRESS_STATUS = "com.canonical.ubuntuinstaller.UbuntuInstallService.PROGRESS_STATUS";
     
     // =================================================================================================
     // Service broadcast
@@ -79,15 +89,12 @@ public class UbuntuInstallService extends IntentService {
     public static final String DOWNLOAD_RESULT = "com.canonical.ubuntuinstaller.UbuntuInstallService.DOWNLOAD_RESULT";
     public static final String DOWNLOAD_RESULT_EXTRA_INT = "res_int"; // 0-success, -1 fail
     public static final String DOWNLOAD_RESULT_EXTRA_STR = "res_str"; // empty for success, or error text
-    public static final String DOWNLOAD_PROGRESS = "com.canonical.ubuntuinstaller.UbuntuInstallService.DOWNLOAD_PROGRESS";
+    public static final String PROGRESS = "com.canonical.ubuntuinstaller.UbuntuInstallService.PROGRESS";
     public static final String PROGRESS_EXTRA_TEXT = "text"; // value will carry name of file currently downloaded 
     public static final String PROGRESS_EXTRA_INT = "progress"; // value between 0-100 of current progress
     public static final String INSTALL_RESULT = "com.canonical.ubuntuinstaller.UbuntuInstallService.INSTALL_COMPLETED";
     public static final String INSTALL_RESULT_EXTRA_INT = "res_int"; // 0-success, -1 fail
     public static final String INSTALL_RESULT_EXTRA_STR = "res_str"; // empty for success, or error text
-    public static final String INSTALL_PROGRESS = "com.canonical.ubuntuinstaller.UbuntuInstallService.INSTALL_PROGRESS";
-                              // PROGRESS_EXTRA_TEXT; output text from install script
-                              // PROGRESS_EXTRA_INT; // value between 0-100 of current progress
     public static final String READY_TO_INSTALL = "com.canonical.ubuntuinstaller.UbuntuInstallService.READY_TO_INSTALL";
     public static final String READY_TO_INSTALL_EXTRA_READY = "ready"; // boolean, true if ready
     public static final String VERSION_UPDATE = "com.canonical.ubuntuinstaller.UbuntuInstallService.VERSION_UPDATE";
@@ -95,7 +102,7 @@ public class UbuntuInstallService extends IntentService {
     // =================================================================================================
     // Download url strings
     // =================================================================================================
-    private static final String BASE_URL = "http://system-image.ubuntu.com";
+    public static final String BASE_URL = "http://system-image.ubuntu.com";
     private static final String CHANNELS_JSON = "/channels.json";
     private static final String URL_IMAGE_MASTER = "gpg/image-master.tar.xz";
     private static final String URL_IMAGE_SIGNING = "gpg/image-signing.tar.xz";
@@ -171,9 +178,12 @@ public class UbuntuInstallService extends IntentService {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent.getAction().equals(CANCEL_DOWNLOAD)) {
+    	String action = intent.getAction(); 
+        if (action.equals(CANCEL_DOWNLOAD)) {
             // set the cancel flag, but let it remove downloaded files on worker thread
             mIsCanceled = true;
+        } else if (action.equals(REQUEST_PROGRESS_STATUS)) {
+        	broadcastProgress(mLastSignalledProgress, "");
         }
         return super.onStartCommand(intent, flags, startId);
     }
@@ -206,11 +216,14 @@ public class UbuntuInstallService extends IntentService {
         } else if (action.equals(INSTALL_UBUNTU)) {
             Log.d(TAG, this.toString() + ": INSTALL_UBUNTU");
             result = doInstallUbuntu(intent);
+        } else if (action.equals(CANCEL_INSTALL)) {
+        Log.d(TAG, this.toString() + ": CANCEL_INSTALL");
         } else if (action.equals(UNINSTALL_UBUNTU)) {
             Log.d(TAG, this.toString() + ": UNINSTALL_UBUNTU");
             result = doUninstallUbuntu(intent);
         } else if (action.equals(DELETE_UBUNTU_USER_DATA)) {  
             Log.d(TAG, this.toString() + ": DELETE_UBUNTU_USER_DATA");
+            result = doDeleteUbuntuUserData(intent);
         } else {
         }
         if (result != null) {
@@ -304,7 +317,7 @@ public class UbuntuInstallService extends IntentService {
         try {
             File rootFolder = new File(mRootOfWorkPath);
             File supportingFiles = new File(rootFolder, RELEASE_FOLDER);
-            broadcastProgress(INSTALL_PROGRESS, 0, "Extracting supporting files");
+            broadcastProgress(0, "Extracting supporting files");
             try {
                 Utils.extractExecutableAsset(this, BUSYBOX, supportingFiles.toString(), true);
                 Utils.extractExecutableAsset(this, GPG, supportingFiles.toString(), true);
@@ -322,7 +335,7 @@ public class UbuntuInstallService extends IntentService {
                 return result;
             }
             // get superuser and run update script
-            broadcastProgress(INSTALL_PROGRESS, -1, "Starting update script");
+            broadcastProgress(-1, "Starting update script");
             try {
                 Process process = Runtime.getRuntime().exec("su", null, supportingFiles);
                 DataOutputStream os = new DataOutputStream(process.getOutputStream());
@@ -347,7 +360,7 @@ public class UbuntuInstallService extends IntentService {
                         scriptExecuted = true;
                         String seg = new String(buff,0,read);
                         Log.i(TAG, "Script Output: " + seg);
-                        broadcastProgress(INSTALL_PROGRESS, -1, seg);
+                        broadcastProgress(-1, seg);
                     }
                     while( es.available() > 0) {
                         read = es.read(buff);
@@ -364,12 +377,11 @@ public class UbuntuInstallService extends IntentService {
                             if ( mLastSignalledProgress < (mProgress * 100 / mTotalSize)) {
                                 // update and signal new progress
                                 mLastSignalledProgress = (int) (mProgress * 100 / mTotalSize);
-                                broadcastProgress(INSTALL_PROGRESS, mLastSignalledProgress, null);
+                                broadcastProgress(mLastSignalledProgress, null);
                             }
                         }                        
                         // Log.i(TAG, "Stderr Output: " + seg);
-                    }
-                    
+                    }                    
                     try {
                         int ret = process.exitValue();
                         Log.v(TAG, "Worker thread exited with: " + ret);
@@ -404,69 +416,131 @@ public class UbuntuInstallService extends IntentService {
         }
         SharedPreferences.Editor editor = pref.edit();
         editor.putString(PREF_KEY_UPDATE_COMMAND, "");
-        editor.putStringSet(PREF_KEY_INSTALLED_VERSION, pref.getStringSet(PREF_KEY_DOWNLOADED_VERSION, 
-                                                            new VersionInfo().getSet()));
-        editor.commit();
-
+        VersionInfo v = new VersionInfo(pref, PREF_KEY_DOWNLOADED_VERSION);
+        v.storeVersion(editor, PREF_KEY_INSTALLED_VERSION);
+        mProgress = 100;
         result.putExtra(INSTALL_RESULT_EXTRA_INT, 0);
         return result;
     }
 
     private Intent doUninstallUbuntu(Intent intent) {
         Intent result = new Intent(VERSION_UPDATE);
+        boolean removeUserData = intent.getBooleanExtra(UNINSTALL_UBUNTU_EXTRA_REMOVE_USER_DATA, false);
+        String c = null;
+        if (removeUserData) {
+            c = String.format("echo \"%s %s\n %s %s\" > %s\n", 
+                                    COMMAND_FORMAT, PARTITION_DATA,
+                                    COMMAND_UMOUNT, PARTITION_SYSTEM,
+                                    UPDATE_COMMAND);
+        } else {
+            c = String.format("echo \"%s %s\" > %s\n", 
+                    COMMAND_UMOUNT, PARTITION_SYSTEM,
+                    UPDATE_COMMAND);                
+        }
+        File workingFolder = new File(mRootOfWorkPath, TEMP_FOLDER);
+        File updateCommand = new File(workingFolder, UPDATE_COMMAND);        
+        int r = executeSUCommands(result, "result", new String[]{
+                c,
+                ("sh " + UPDATE_SCRIPT 
+                        + " " + updateCommand.getAbsolutePath() 
+                        + " " + getFilesDir().toString() + "\n"),
+                ("rm -rf /data/system.img\n"),
+                ("rm -rf /data/SWAP.img\n")
+        } );
+        if (r == 0) {
+        // delete installed version in preferences
+        SharedPreferences pref = getSharedPreferences( SHARED_PREF, Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = pref.edit();
+        editor.putString(PREF_KEY_UPDATE_COMMAND, "");
+        VersionInfo.storeEmptyVersion(editor, PREF_KEY_INSTALLED_VERSION);
+        editor.commit();
+        }
+        result.putExtra("result", r);
+        return result;
+    }
+    
+    private Intent doDeleteUbuntuUserData(Intent intent) {
+        Intent result = new Intent(VERSION_UPDATE);
+        File workingFolder = new File(mRootOfWorkPath, TEMP_FOLDER);
+        File updateCommand = new File(workingFolder, UPDATE_COMMAND);        
+        int r = executeSUCommands(result, "fail_description", new String[]{
+                String.format("echo \"%s %s\" > %s\n", COMMAND_FORMAT, PARTITION_DATA, UPDATE_COMMAND),
+                ("sh " + UPDATE_SCRIPT + " " + updateCommand.getAbsolutePath() + " " + getFilesDir().toString() + "\n")
+        } );
+        result.putExtra("result", r);
+        return result;
+    }
+    /**
+     * 
+     * @param result intent to update with result text
+     * @param resultExtraText 
+     * @param commands commands to execute
+     * @return 0 for success and -1 for fail
+     */
+    private int executeSUCommands(Intent result, String resultExtraText, String[] commands) {
         File rootFolder = new File(mRootOfWorkPath);
         File workingFolder = new File(rootFolder, TEMP_FOLDER);
         if (!workingFolder.exists() && !workingFolder.mkdir()) {
-            // TODO: failed to get temp folder
-            return null;
+        result.putExtra(resultExtraText, "Failed to create working folder");
+            return -1;
         }
         try {
+        Utils.extractExecutableAsset(this, UPDATE_SCRIPT, workingFolder.toString(), true);
             Utils.extractExecutableAsset(this, ANDROID_LOOP_MOUNT, workingFolder.toString(), true);
         } catch (IOException e) {
             e.printStackTrace();
-            // TODO: what to do now?
-            return null;
+            result.putExtra(resultExtraText, "Failed to extract supporting files");
+            return -1;
         }
         
-        boolean removeUserData = intent.getBooleanExtra(UNINSTALL_UBUNTU_EXTRA_REMOVE_USER_DATA, false);
-        // run uninstall steps
         mWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ubuntu-installing");
         try {
             Process process = Runtime.getRuntime().exec("su", null, workingFolder);
             DataOutputStream os = new DataOutputStream(process.getOutputStream());
-            os.writeBytes("echo -- \n");
-            if (removeUserData) {
-                os.writeBytes( String.format("echo \"%s %s\n %s %s\" > %s\n", 
-                                        COMMAND_FORMAT, PARTITION_DATA,
-                                        COMMAND_UMOUNT, PARTITION_SYSTEM,
-                                        UPDATE_COMMAND));
-            } else {
-                os.writeBytes( String.format("echo \"%s %s\" > %s\n", 
-                        COMMAND_UMOUNT, PARTITION_SYSTEM,
-                        UPDATE_COMMAND));                
+            os.writeBytes("echo \"SU granted\"\n");
+            for (String c : commands) {
+            Log.v(TAG, "Executing:" + c);
+            os.writeBytes(c);
             }
-            File updateCommand = new File(workingFolder, UPDATE_COMMAND);
-            os.writeBytes("sh " + UPDATE_SCRIPT 
-                                + " " + updateCommand.getAbsolutePath() 
-                                + " " + getFilesDir().toString() + "\n");
-            os.writeBytes("rm -rf /data/system.img\n");
-            os.writeBytes("rm -rf /data/SWAP.img\n");
             os.writeBytes(String.format("rm -rf %s\n", workingFolder.getAbsolutePath()));
-            // close terminal
             os.writeBytes("exit\n");
             os.flush();
+            int read = 0;
+            byte[] buff = new byte[4096];
+            InputStream is = process.getInputStream();
+            InputStream es = process.getErrorStream();
             boolean running = true;
+            boolean scriptExecuted = false;
             do {
+                while( is.available() > 0) {
+                    read = is.read(buff);
+                    if ( read <= 0 ) {
+                        break;
+                    }
+                    scriptExecuted = true;
+                    String seg = new String(buff,0,read);
+                    Log.i(TAG, "Script Output: " + seg);
+                    broadcastProgress(-1, seg);
+                }
+                while( es.available() > 0) {
+                    read = es.read(buff);
+                    if ( read <= 0 ) {
+                        break;
+                    }
+                    scriptExecuted = true;
+                    String seg = new String(buff,0,read);
+                    Log.i(TAG, "Stderr Output: " + seg);
+                }
                 try {
                     int ret = process.exitValue();
                     Log.v(TAG, "Worker thread exited with: " + ret);
                         // if script was not executed, then user did not granted SU permissions
-                    if (ret == 255 ) {
-                        // TODO:
-                        return null;
+                    if (ret == 255 || !scriptExecuted ) {
+                        result.putExtra(resultExtraText, "Failed to get SU permissions");
+                        return -1;
                     } else if (ret != 0) {
-                        // TODO:                        
-                        return null;
+                        result.putExtra(resultExtraText, "Script failed");
+                        return -1;                    
                     }
                     running =false;
                 } catch (IllegalThreadStateException e) {
@@ -476,26 +550,24 @@ public class UbuntuInstallService extends IntentService {
             } while (running);            
         }catch (IOException e) {
             e.printStackTrace();
-            // TODO:
-            return null;
-
+            result.putExtra(resultExtraText, "Script execution exception");
+            return -1;
         } finally {
             if (mWakeLock != null && mWakeLock.isHeld()) {
                 mWakeLock.release();
             }
         }
-        // delete installed version in preferences
-        SharedPreferences pref = getSharedPreferences( SHARED_PREF, Context.MODE_PRIVATE);
-        SharedPreferences.Editor editor = pref.edit();
-        editor.putString(PREF_KEY_UPDATE_COMMAND, "");
-        editor.putStringSet(PREF_KEY_INSTALLED_VERSION, new VersionInfo().getSet());
-        editor.commit();        
-        return result;
+        return 0;
     }
     
     private Intent doDownloadRelease(Intent intent) {
         mWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ufa-downloading");
         mIsCanceled = false;
+        SharedPreferences.Editor editor = getSharedPreferences( SHARED_PREF, Context.MODE_PRIVATE).edit();
+        editor.putString(PREF_KEY_UPDATE_COMMAND, "");
+        VersionInfo.storeEmptyVersion( editor, PREF_KEY_DOWNLOADED_VERSION);
+        editor.commit();
+
         Intent result = new Intent(DOWNLOAD_RESULT);
         try {
             File rootFolder = new File(mRootOfWorkPath);
@@ -504,18 +576,37 @@ public class UbuntuInstallService extends IntentService {
             String alias = intent.getStringExtra(DOWNLOAD_RELEASE_EXTRA_CHANNEL_ALIAS);
             String jsonUrl = intent.getStringExtra(DOWNLOAD_RELEASE_EXTRA_CHANNEL_URL);
             boolean bootstrap = intent.getBooleanExtra(DOWNLOAD_RELEASE_EXTRA_BOOTSTRAP,true); // default bootstrap on
+            int version = intent.getIntExtra(DOWNLOAD_RELEASE_EXTRA_VERSION,  -1);
             boolean fullRelease = true; // TODO: delta updates should be detected dynamicaly here
             String jsonStr = Utils.httpDownload(BASE_URL + jsonUrl);
             List<Image> releases = JsonChannelParser.getAvailableReleases(jsonStr, JsonChannelParser.ReleaseType.FULL);
-            if (releases.size() == 0 || releases.get(0).files.length == 0 ){
+            if (releases.size() == 0 || releases.get(0).files.length == 0 ) {
                 // something is wrong, empty release
                 Log.e(TAG, "Empty releas");
                 result.putExtra(DOWNLOAD_RESULT_EXTRA_INT, -1);
                 result.putExtra(DOWNLOAD_RESULT_EXTRA_STR, "Empty release");
                 return result;
             }
-            // get first since that is most recent one
-            JsonChannelParser.File updateFiles[] = releases.get(0).files;           
+            // get right version, otherwise first since that is most recent one
+            Image choosenRelease = null;
+            if (version != -1) {
+            // look for given release
+            for (Image i : releases) {
+            if (i.version == version) {
+            choosenRelease = i;
+            break;
+            }
+            }
+            if (choosenRelease == null) {
+                    Log.e(TAG, "wrong release vwersion");
+                    result.putExtra(DOWNLOAD_RESULT_EXTRA_INT, -1);
+                    result.putExtra(DOWNLOAD_RESULT_EXTRA_STR, "wrong release vwersion");
+                    return result;            
+            }
+            } else {
+            choosenRelease = releases.get(0);
+            }
+            JsonChannelParser.File updateFiles[] = choosenRelease.files;           
             // sort update files
             List<JsonChannelParser.File> filesArray = new LinkedList<JsonChannelParser.File>();
             for(JsonChannelParser.File f: updateFiles) {
@@ -546,7 +637,7 @@ public class UbuntuInstallService extends IntentService {
             long time = System.currentTimeMillis();
             mLastSignalledProgress = 0;
             mProgress = 0;
-            broadcastProgress(DOWNLOAD_PROGRESS, mLastSignalledProgress, null);
+            broadcastProgress(mLastSignalledProgress, null);
             mTotalSize = Utils.calculateDownloadSize(filesArray);
             // mProgressSteps = mTotalDownloadSize / 100; // we want 1% steps
             try {
@@ -581,7 +672,7 @@ public class UbuntuInstallService extends IntentService {
             }
 
             Log.i(TAG, "Download done in " + (System.currentTimeMillis() - time )/1000 + " seconds");
-            broadcastProgress(DOWNLOAD_PROGRESS, 99, "Generating update command");
+            broadcastProgress(-1, "Generating update command");
 
             // generate update_command
             File updateCommand = new File(release, UPDATE_COMMAND);
@@ -632,7 +723,7 @@ public class UbuntuInstallService extends IntentService {
                 result.putExtra(DOWNLOAD_RESULT_EXTRA_STR, "Failed to generate update command");
                 return result;
             }
-            broadcastProgress(DOWNLOAD_PROGRESS, -1, "Download done in " + (System.currentTimeMillis() - time )/1000 + " seconds");
+            broadcastProgress(-1, "Download done in " + (System.currentTimeMillis() - time )/1000 + " seconds");
             int estimatedCheckCount = 0;
             for (JsonChannelParser.File file : filesArray){
                  if (file.path.contains("ubuntu-")) {
@@ -644,12 +735,11 @@ public class UbuntuInstallService extends IntentService {
                  }
             }
             // store update command
-            VersionInfo v = new VersionInfo(alias, jsonUrl, releases.get(0).description, releases.get(0).version);
-            SharedPreferences pref = getSharedPreferences( SHARED_PREF, Context.MODE_PRIVATE);
-            SharedPreferences.Editor editor = pref.edit();
-            editor.putStringSet(PREF_KEY_DOWNLOADED_VERSION, v.getSet());
+            VersionInfo v = new VersionInfo(alias, jsonUrl, choosenRelease.description, choosenRelease.version);
             editor.putString(PREF_KEY_UPDATE_COMMAND, updateCommand.getAbsolutePath());
             editor.putInt(PREF_KEY_ESTIMATED_CHECKPOINTS, estimatedCheckCount);
+            v.storeVersion(editor, PREF_KEY_DOWNLOADED_VERSION);
+            mProgress = 100;
             editor.commit();
             
         } finally {
@@ -672,7 +762,7 @@ public class UbuntuInstallService extends IntentService {
         URLConnection conn = url.openConnection();
         String fileName = URLUtil.guessFileName(url.toString(), null, null);
         // TODO: update progress accordingly
-        broadcastProgress(DOWNLOAD_PROGRESS, mLastSignalledProgress, "Downloading: " + fileName);        
+        broadcastProgress(mLastSignalledProgress, "Downloading: " + fileName);        
         File file = new File(targerLocation, fileName);
         if (file.exists() && file.isFile()) {
             file.delete();
@@ -695,7 +785,7 @@ public class UbuntuInstallService extends IntentService {
             if ( mLastSignalledProgress < (mProgress * 100 / mTotalSize)) {
                 // update and signal new progress
                 mLastSignalledProgress = (int) (mProgress * 100 / mTotalSize);
-                broadcastProgress(DOWNLOAD_PROGRESS, mLastSignalledProgress, null);
+                broadcastProgress(mLastSignalledProgress, null);
             }
         }
         output.flush();
@@ -732,14 +822,14 @@ public class UbuntuInstallService extends IntentService {
             SharedPreferences pref = getSharedPreferences( SHARED_PREF, Context.MODE_PRIVATE);
             SharedPreferences.Editor editor = pref.edit();
             editor.putString(PREF_KEY_UPDATE_COMMAND, "");
-            editor.putStringSet(PREF_KEY_DOWNLOADED_VERSION, new VersionInfo().getSet());
+            VersionInfo.storeEmptyVersion(editor, PREF_KEY_INSTALLED_VERSION);
             editor.commit();
         }
         return null;
     }
     
-    private void broadcastProgress(String a, int val, String progress) {
-        Intent i = new Intent(a);
+    private void broadcastProgress(int val, String progress) {
+        Intent i = new Intent(PROGRESS);
         i.putExtra(PROGRESS_EXTRA_INT, val);
         if (progress!= null) {
             i.putExtra(PROGRESS_EXTRA_TEXT, progress);
