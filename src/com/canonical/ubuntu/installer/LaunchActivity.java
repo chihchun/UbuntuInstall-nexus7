@@ -24,7 +24,7 @@ import android.widget.TextView;
 
 public class LaunchActivity extends Activity {
     private static final String TAG = "UbuntuLaunchActivity";
-    
+    private static final String UBUNTU_BOOT_IMG = "ubuntu-boot.img";
     private UbuntuButton mRebootButton;
     private TextView mTextChannel;
     private TextView mTextChannelLabel;
@@ -181,12 +181,8 @@ public class LaunchActivity extends Activity {
                 try {
                     Process process = Runtime.getRuntime().exec("su", null, getFilesDir());
                     DataOutputStream os = new DataOutputStream(process.getOutputStream());
-                    // TODO: 
-                    // stock ROM has habit to reflash recovery with stock recovery
-                    // we need to reflas ubuntu boot image here
-                    // TODO: this should per device
-                    // os.writeBytes("ubuntu_boot.img > /dev/block/platform/msm_sdcc.1/by-name/recovery\n");
-                    // reboot
+                    os.writeBytes(String.format("cat %s/%s > /dev/block/platform/msm_sdcc.1/by-name/recovery\n", 
+                    		                    getFilesDir().toString(), UBUNTU_BOOT_IMG));
                     os.writeBytes("reboot recovery\n");
                     os.flush();
                     try {
