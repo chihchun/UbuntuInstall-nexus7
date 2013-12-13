@@ -249,7 +249,7 @@ do
             if [ -e "partitions/boot.img" ]; then
                 # mako only, need better solution
                 cat partitions/boot.img > /dev/block/platform/msm_sdcc.1/by-name/recovery
-                mv partitions/boot.img /cache/ubuntu-boot.img
+                cp partitions/boot.img $PRIVATE_DIR/ubuntu-boot.img
             fi
 
 if false; then # 
