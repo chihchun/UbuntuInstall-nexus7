@@ -158,11 +158,9 @@ do
                 ;;
 
                 data)
-                    for entry in /data/*; do
-                        if [ "$entry" == "/data/SWAP.img" ] || [ "$entry" == "/data/system-data" ] || [ "$entry" == "/data/user-data" ] ; then
-                            rm -Rf $entry
-                        fi
-                    done
+                    rm -f /data/SWAP.img
+                    rm -Rf /data/system-data
+                    rm -Rf /data/user-data
                 ;;
 
                 *)
