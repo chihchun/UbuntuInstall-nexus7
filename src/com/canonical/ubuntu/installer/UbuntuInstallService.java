@@ -58,6 +58,7 @@ public class UbuntuInstallService extends IntentService {
     // =================================================================================================
     public final static boolean DEFAULT_UNINSTALL_DEL_USER_DATA = false;
     public final static boolean DEFAULT_INSTALL_BOOTSTRAP = false;
+    public final static String DEFAULT_CHANNEL_ALIAS = "trusty";
     // =================================================================================================
     // Service Actions
     // =================================================================================================

@@ -162,10 +162,18 @@ public class InstallActivity extends Activity {
             } else if (0 != mAvailableChannels.size()) {
                 // get list of aliases as array
                 String channels[] = mAvailableChannels.keySet().toArray(new String[mAvailableChannels.size()]);
+                // look for "trusty" as default channel
+                int defSelection = channels.length/2;
+                for (int i = 0 ; i < channels.length ; ++i) {
+                	if (channels[i].equals(UbuntuInstallService.DEFAULT_CHANNEL_ALIAS)){
+                		defSelection = i;
+                		break;
+                	}
+                }
                 new TextPickerDialog(v.getContext(), 
                                      mInstallDialogListener, 
                                      channels,
-                                     channels.length/2,
+                                     defSelection,
                                      UbuntuInstallService.DEFAULT_INSTALL_BOOTSTRAP, /*default bootstrap settings*/
                                      true /* default latest settings*/).show();
             } else {
