@@ -152,18 +152,16 @@ do
                 system)
                     FULL_IMAGE=1
                     rm -f /data/system.img
+                    rm -f /data/.layout_version
                     busybox dd if=/dev/zero of=/data/system.img seek=500K bs=4096 count=1
                     busybox mkfs.ext2 -F /data/system.img
                 ;;
 
-# too dangerous, so comment it out !
-#                data)
-#                    for entry in /data/*; do
-#                        if [ "$entry" != "system.img" ]; then
-#                            rm -Rf $entry
-#                        fi
-#                    done
-#                ;;
+                data)
+                    rm -f /data/SWAP.img
+                    rm -Rf /data/system-data
+                    rm -Rf /data/user-data
+                ;;
 
                 *)
                     echo "Unknown format target: $2"
