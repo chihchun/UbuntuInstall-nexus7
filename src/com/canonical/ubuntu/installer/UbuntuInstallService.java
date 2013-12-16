@@ -21,6 +21,7 @@ import org.json.JSONObject;
 import org.json.JSONTokener;
 
 import com.canonical.ubuntu.installer.JsonChannelParser.Image;
+import com.canonical.ubuntu.installer.VersionInfo.ReleaseType;
 
 import android.app.IntentService;
 import android.content.Context;
@@ -50,8 +51,6 @@ public class UbuntuInstallService extends IntentService {
     public final static String PREF_KEY_DEVELOPER = "developer";
     // Key for int value: estimated number of checkpoints for installation
     public final static String PREF_KEY_ESTIMATED_CHECKPOINTS = "est_checkpoints";
-    // Key for boolean
-    
     
     // =================================================================================================
     // Default values to be used
@@ -59,6 +58,7 @@ public class UbuntuInstallService extends IntentService {
     public final static boolean DEFAULT_UNINSTALL_DEL_USER_DATA = false;
     public final static boolean DEFAULT_INSTALL_BOOTSTRAP = false;
     public final static String DEFAULT_CHANNEL_ALIAS = "trusty";
+    
     // =================================================================================================
     // Service Actions
     // =================================================================================================
@@ -70,21 +70,25 @@ public class UbuntuInstallService extends IntentService {
     public static final String DOWNLOAD_RELEASE_EXTRA_CHANNEL_URL = "url";     // string
     public static final String DOWNLOAD_RELEASE_EXTRA_BOOTSTRAP = "bootstrap"; // boolean
     public static final String DOWNLOAD_RELEASE_EXTRA_VERSION = "version"; // int
+    public static final String DOWNLOAD_RELEASE_EXTRA_TYPE = "type"; // JsonChannelParser.ReleaseType
     public static final String CANCEL_DOWNLOAD = "com.canonical.ubuntuinstaller.UbuntuInstallService.CANCEL_DOWNLOAD";
     public static final String PAUSE_DOWNLOAD = "com.canonical.ubuntuinstaller.UbuntuInstallService.PAUSE_DOWNLOAD";
     public static final String RESUME_DOWNLOAD = "com.canonical.ubuntuinstaller.UbuntuInstallService.RESUME_DOWNLOAD";
     public static final String CLEAN_DOWNLOAD = "com.canonical.ubuntuinstaller.UbuntuInstallService.CLEAN_DOWNLOADED";
-    public static final String IS_RELEADY_TO_INSTALL = "com.canonical.ubuntuinstaller.UbuntuInstallService.IS_READY_TO_INSTALL";
     public static final String INSTALL_UBUNTU = "com.canonical.ubuntuinstaller.UbuntuInstallService.INSTALL_UBUNTU";
     public static final String CANCEL_INSTALL = "com.canonical.ubuntuinstaller.UbuntuInstallService.CANCEL_INSTALL";
     public static final String UNINSTALL_UBUNTU = "com.canonical.ubuntuinstaller.UbuntuInstallService.UINSTALL_UBUNTU";
     public static final String UNINSTALL_UBUNTU_EXTRA_REMOVE_USER_DATA = "user_data";
+    public static final String CHECK_FOR_UPDATE = "com.canonical.ubuntuinstaller.UbuntuInstallService.CHECK_FOR_UPDATE";
     public static final String DELETE_UBUNTU_USER_DATA = "com.canonical.ubuntuinstaller.UbuntuInstallService.DELETE_USER_DATA";
-    public static final String REQUEST_PROGRESS_STATUS = "com.canonical.ubuntuinstaller.UbuntuInstallService.PROGRESS_STATUS";
+    public static final String GET_SERVICE_STATE = "com.canonical.ubuntuinstaller.UbuntuInstallService.GET_SERVICE_STATE";
+    public static final String GET_PROGRESS_STATUS = "com.canonical.ubuntuinstaller.UbuntuInstallService.GET_PROGRESS_STATUS";
     
     // =================================================================================================
     // Service broadcast
     // =================================================================================================
+    public static final String SERVICE_STATE = "com.canonical.ubuntuinstaller.UbuntuInstallService.SERVICE_STATE";
+    public static final String SERVICE_STATE_EXTRA_STATE = "state"; // ServiceState enum
     public static final String AVAILABLE_CHANNELS = "com.canonical.ubuntuinstaller.UbuntuInstallService.AVAILABLE_CHANNELS";
     public static final String AVAILABLE_CHANNELS_EXTRA_CHANNELS = "channels"; // HashMap<String,String> channel aliases and json url
     public static final String DOWNLOAD_RESULT = "com.canonical.ubuntuinstaller.UbuntuInstallService.DOWNLOAD_RESULT";
@@ -96,9 +100,10 @@ public class UbuntuInstallService extends IntentService {
     public static final String INSTALL_RESULT = "com.canonical.ubuntuinstaller.UbuntuInstallService.INSTALL_COMPLETED";
     public static final String INSTALL_RESULT_EXTRA_INT = "res_int"; // 0-success, -1 fail
     public static final String INSTALL_RESULT_EXTRA_STR = "res_str"; // empty for success, or error text
-    public static final String READY_TO_INSTALL = "com.canonical.ubuntuinstaller.UbuntuInstallService.READY_TO_INSTALL";
-    public static final String READY_TO_INSTALL_EXTRA_READY = "ready"; // boolean, true if ready
     public static final String VERSION_UPDATE = "com.canonical.ubuntuinstaller.UbuntuInstallService.VERSION_UPDATE";
+    public static final String VERSION_UPDATE_EXTRA_VERSION = "version"; // int new version
+    public static final String VERSION_UPDATE_EXTRA_DESCRIPTION = "description"; // string
+    public static final String VERSION_UPDATE_EXTRA_ALIAS = "alias"; // string
     
     // =================================================================================================
     // Download url strings
@@ -114,6 +119,13 @@ public class UbuntuInstallService extends IntentService {
     // 15M extra space to keep it safe.
     private static long EXTRA_SIZE_REQUIRED = 15 * 1024 * 1024;
 
+    
+    /**
+     * State of the service 
+     */
+    public enum ServiceState {
+        READY, FETCHING_CHANNELS, DOWNLOADING, INSTALLING, UNINSTALLING_UBUNTU, DELETING_USER_DATA 
+    }
     
     // =================================================================================================
     // Packed assets
@@ -131,14 +143,14 @@ public class UbuntuInstallService extends IntentService {
     // =================================================================================================
     // Update command file constants
     // =================================================================================================
-    String UPDATE_COMMAND = "update_command";
-    String COMMAND_FORMAT = "format";
-    String COMMAND_MOUNT = "mount";
-    String COMMAND_UMOUNT = "unmount";
-    String COMMAND_LOAD_KEYRING = "load_keyring";
-    String COMMAND_UPDATE = "update";
-    String PARTITION_DATA = "data";
-    String PARTITION_SYSTEM = "system";
+    private static final String UPDATE_COMMAND = "update_command";
+    private static final String COMMAND_FORMAT = "format";
+    private static final String COMMAND_MOUNT = "mount";
+    private static final String COMMAND_UMOUNT = "unmount";
+    private static final String COMMAND_LOAD_KEYRING = "load_keyring";
+    private static final String COMMAND_UPDATE = "update";
+    private static final String PARTITION_DATA = "data";
+    private static final String PARTITION_SYSTEM = "system";
     
     // other constants
     private static final String RELEASE_FOLDER = "/ubuntu_release";
@@ -157,12 +169,23 @@ public class UbuntuInstallService extends IntentService {
     // progress values
     private long mProgress; // so far handled amount downloaded/processed 
     private int mLastSignalledProgress;
-    private long mTotalSize; // calculated 
+    private long mTotalSize; // calculated
+    private ServiceState mServiceState;
     
     public class Channel {
         String alias;
         File[] files;
         boolean hiden;
+    };
+    
+    class ECancelException extends Exception {
+        public ECancelException(){
+            super();
+        }
+
+        public ECancelException(String string) {
+            // TODO Auto-generated constructor stub
+        }
     };
     
     public UbuntuInstallService() {
@@ -184,16 +207,22 @@ public class UbuntuInstallService extends IntentService {
             mRootOfWorkPath = getFilesDir().toString(); //  "/data/data/com.canonical.ubuntuinstaller/files";
             workPathInCache = false;
         }
+        mServiceState = ServiceState.READY;
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-    	String action = intent.getAction(); 
-        if (action.equals(CANCEL_DOWNLOAD)) {
-            // set the cancel flag, but let it remove downloaded files on worker thread
-            mIsCanceled = true;
-        } else if (action.equals(REQUEST_PROGRESS_STATUS)) {
-        	broadcastProgress(mLastSignalledProgress, "");
+        // if service is not in ready state, handle specific requests here
+        if (mServiceState != ServiceState.READY) {
+            String action = intent.getAction(); 
+            if (action.equals(CANCEL_DOWNLOAD)) {
+                // set the cancel flag, but let it remove downloaded files on worker thread
+                mIsCanceled = true;
+            } else if (action.equals(GET_PROGRESS_STATUS)) {
+                broadcastProgress(mLastSignalledProgress, ""); 
+            } else if (action.equals(GET_SERVICE_STATE)) {
+                broadcastServiceState();
+            }
         }
         return super.onStartCommand(intent, flags, startId);
     }
@@ -203,42 +232,53 @@ public class UbuntuInstallService extends IntentService {
         String action = intent.getAction();
         Intent result = null;
         if (action.equals(GET_CHANNEL_LIST)) {
+            mServiceState = ServiceState.FETCHING_CHANNELS;
             Log.d(TAG, this.toString() + ": GET_CHANNEL_LIST");
             result = doGetChannelList(intent);
         } else if (action.equals(DOWNLOAD_RELEASE)) {
             Log.d(TAG, this.toString() + ": DOWNLOAD_RELEASE");
+            mServiceState = ServiceState.DOWNLOADING;
             result = doDownloadRelease(intent);
         } else if (action.equals(CANCEL_DOWNLOAD)) {
             Log.d(TAG, this.toString() + ": CANCEL_DOWNLOAD");
-            // TODO: handle download
+            // download should be already cancelled, now delete all the files
+            result = doRemoreDownload(intent);
         } else if (action.equals(PAUSE_DOWNLOAD)) {
             Log.d(TAG, this.toString() + ": PAUSE_DOWNLOAD");
             // TODO: handle download
         } else if (action.equals(RESUME_DOWNLOAD)) {
             Log.d(TAG, this.toString() + ": RESUME_DOWNLOAD");
+            mServiceState = ServiceState.DOWNLOADING;
             // TODO: handle download
         } else if (action.equals(CLEAN_DOWNLOAD)) {
             Log.d(TAG, this.toString() + ": CLEAN_DOWNLOAD");
             result = doRemoreDownload(intent);
-        } else if (action.equals(IS_RELEADY_TO_INSTALL)) {
-            Log.d(TAG, this.toString() + ": IS_RELEADY_TO_INSTALL");
-            result = checkifReadyToInstall(intent);
         } else if (action.equals(INSTALL_UBUNTU)) {
             Log.d(TAG, this.toString() + ": INSTALL_UBUNTU");
+            mServiceState = ServiceState.INSTALLING;
             result = doInstallUbuntu(intent);
         } else if (action.equals(CANCEL_INSTALL)) {
-        Log.d(TAG, this.toString() + ": CANCEL_INSTALL");
+            Log.d(TAG, this.toString() + ": CANCEL_INSTALL");
+            // install should be already cancelled, try to delete it now
+            mServiceState = ServiceState.UNINSTALLING_UBUNTU;
+            result = doUninstallUbuntu(intent);
         } else if (action.equals(UNINSTALL_UBUNTU)) {
             Log.d(TAG, this.toString() + ": UNINSTALL_UBUNTU");
+            mServiceState = ServiceState.UNINSTALLING_UBUNTU;
             result = doUninstallUbuntu(intent);
         } else if (action.equals(DELETE_UBUNTU_USER_DATA)) {  
             Log.d(TAG, this.toString() + ": DELETE_UBUNTU_USER_DATA");
+            mServiceState = ServiceState.DELETING_USER_DATA;
             result = doDeleteUbuntuUserData(intent);
         } else {
+            // for any other request broadcast service state
+            result = new Intent(SERVICE_STATE);
+            result.putExtra(SERVICE_STATE_EXTRA_STATE, mServiceState.ordinal());
         }
         if (result != null) {
             sendBroadcast(result);
         }
+        mServiceState = ServiceState.READY;
     }
     
     private Intent doGetChannelList(Intent intent) {
@@ -285,19 +325,6 @@ public class UbuntuInstallService extends IntentService {
         }
         result.putExtra(AVAILABLE_CHANNELS_EXTRA_CHANNELS, channels);
         return result;
-    }
-    
-    private Intent checkifReadyToInstall(Intent intent) {
-        SharedPreferences pref = getSharedPreferences( SHARED_PREF, Context.MODE_PRIVATE);
-        String command = pref.getString(PREF_KEY_UPDATE_COMMAND, "");
-        boolean ready = false;
-        if (!command.equals("")){
-            File f = new File(command);
-            ready = f.exists();
-        }
-        Intent i = new Intent(READY_TO_INSTALL);
-        i.putExtra(READY_TO_INSTALL_EXTRA_READY, ready);
-        return i;
     }
     
     private Intent doRemoreDownload(Intent intent) {
@@ -574,9 +601,6 @@ public class UbuntuInstallService extends IntentService {
         mWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ufa-downloading");
         mIsCanceled = false;
         SharedPreferences.Editor editor = getSharedPreferences( SHARED_PREF, Context.MODE_PRIVATE).edit();
-        editor.putString(PREF_KEY_UPDATE_COMMAND, "");
-        VersionInfo.storeEmptyVersion( editor, PREF_KEY_DOWNLOADED_VERSION);
-        editor.commit();
 
         Intent result = new Intent(DOWNLOAD_RESULT);
         try {
@@ -587,9 +611,11 @@ public class UbuntuInstallService extends IntentService {
             String jsonUrl = intent.getStringExtra(DOWNLOAD_RELEASE_EXTRA_CHANNEL_URL);
             boolean bootstrap = intent.getBooleanExtra(DOWNLOAD_RELEASE_EXTRA_BOOTSTRAP,true); // default bootstrap on
             int version = intent.getIntExtra(DOWNLOAD_RELEASE_EXTRA_VERSION,  -1);
-            boolean fullRelease = true; // TODO: delta updates should be detected dynamicaly here
+            ReleaseType releaseType = ReleaseType.fromValue(
+                    intent.getIntExtra(DOWNLOAD_RELEASE_EXTRA_TYPE, ReleaseType.FULL.getValue())); // by default look for full releases
+
             String jsonStr = Utils.httpDownload(BASE_URL + jsonUrl);
-            List<Image> releases = JsonChannelParser.getAvailableReleases(jsonStr, JsonChannelParser.ReleaseType.FULL);
+            List<Image> releases = JsonChannelParser.getAvailableReleases(jsonStr, ReleaseType.FULL);
             if (releases.size() == 0 || releases.get(0).files.length == 0 ) {
                 // something is wrong, empty release
                 Log.e(TAG, "Empty releas");
@@ -695,6 +721,11 @@ public class UbuntuInstallService extends IntentService {
                 result.putExtra(DOWNLOAD_RESULT_EXTRA_INT, -1);
                 result.putExtra(DOWNLOAD_RESULT_EXTRA_STR, "IO Error");
                 return result;
+            } catch (ECancelException e) {
+                // Download was cancelled by user
+                result.putExtra(DOWNLOAD_RESULT_EXTRA_INT, -2);
+                result.putExtra(DOWNLOAD_RESULT_EXTRA_STR, "Download cancelled by user");
+                return result;
             }
 
             Log.i(TAG, "Download done in " + (System.currentTimeMillis() - time )/1000 + " seconds");
@@ -708,7 +739,7 @@ public class UbuntuInstallService extends IntentService {
                     if (bootstrap) {
                         fos.write((String.format("%s %s\n", COMMAND_FORMAT, PARTITION_DATA)).getBytes());
                     }
-                    if (fullRelease) {
+                    if (releaseType == ReleaseType.FULL) {
                         fos.write((String.format("%s %s\n", COMMAND_FORMAT, PARTITION_SYSTEM)).getBytes());
                     }
                     // load keyrings
@@ -731,7 +762,7 @@ public class UbuntuInstallService extends IntentService {
                     }
                     
                     // add Ubuntu reboot app update package
-                    if (fullRelease) {
+                    if (releaseType == ReleaseType.FULL) {
                         fos.write((String.format("%s %s %s\n", 
                                 COMMAND_UPDATE, 
                                 U_REBOOT_APP, 
@@ -761,7 +792,7 @@ public class UbuntuInstallService extends IntentService {
                  }
             }
             // store update command
-            VersionInfo v = new VersionInfo(alias, jsonUrl, choosenRelease.description, choosenRelease.version);
+            VersionInfo v = new VersionInfo(alias, jsonUrl, choosenRelease.description, choosenRelease.version, releaseType);
             editor.putString(PREF_KEY_UPDATE_COMMAND, updateCommand.getAbsolutePath());
             editor.putInt(PREF_KEY_ESTIMATED_CHECKPOINTS, estimatedCheckCount);
             v.storeVersion(editor, PREF_KEY_DOWNLOADED_VERSION);
@@ -783,7 +814,7 @@ public class UbuntuInstallService extends IntentService {
     }
 
     private String doDownloadUrl(URL url, File targerLocation) throws MalformedURLException,
-    FileNotFoundException, IOException {
+    FileNotFoundException, IOException, ECancelException {
         Log.v(TAG, "Downloading:" + url.toString());
         URLConnection conn = url.openConnection();
         String fileName = URLUtil.guessFileName(url.toString(), null, null);
@@ -803,7 +834,7 @@ public class UbuntuInstallService extends IntentService {
         
         while ((len = input.read(buffer)) > 0) {
             if (mIsCanceled) {
-                break;
+                throw new ECancelException("Cancelled");
             }
             output.write(buffer, 0, len);
             mProgress += len;
@@ -848,10 +879,16 @@ public class UbuntuInstallService extends IntentService {
             SharedPreferences pref = getSharedPreferences( SHARED_PREF, Context.MODE_PRIVATE);
             SharedPreferences.Editor editor = pref.edit();
             editor.putString(PREF_KEY_UPDATE_COMMAND, "");
-            VersionInfo.storeEmptyVersion(editor, PREF_KEY_INSTALLED_VERSION);
+            VersionInfo.storeEmptyVersion(editor, PREF_KEY_DOWNLOADED_VERSION);
             editor.commit();
         }
         return null;
+    }
+    
+    private void broadcastServiceState() {
+        Intent i = new Intent(SERVICE_STATE);
+        i.putExtra(SERVICE_STATE, mServiceState.ordinal());
+        sendBroadcast(i);
     }
     
     private void broadcastProgress(int val, String progress) {

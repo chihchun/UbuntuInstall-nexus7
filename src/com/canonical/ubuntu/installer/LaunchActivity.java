@@ -182,7 +182,7 @@ public class LaunchActivity extends Activity {
                     Process process = Runtime.getRuntime().exec("su", null, getFilesDir());
                     DataOutputStream os = new DataOutputStream(process.getOutputStream());
                     os.writeBytes(String.format("cat %s/%s > /dev/block/platform/msm_sdcc.1/by-name/recovery\n", 
-                    		                    getFilesDir().toString(), UBUNTU_BOOT_IMG));
+                                                getFilesDir().toString(), UBUNTU_BOOT_IMG));
                     os.writeBytes("reboot recovery\n");
                     os.flush();
                     try {

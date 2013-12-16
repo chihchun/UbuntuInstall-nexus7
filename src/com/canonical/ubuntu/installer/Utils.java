@@ -20,6 +20,8 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.DefaultHttpClient;
 
 import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.res.AssetManager;
 import android.os.StatFs;
 import android.util.Log;
@@ -178,6 +180,27 @@ public class Utils {
     	}
     	return size;
     }
+    
+    /**
+     * Check if there is downloaded release ready to install
+     * @param context
+     * @return true if there is downloaded release ready to install
+     */
+    public static boolean checkifReadyToInstall(Context context) {
+        SharedPreferences pref = context.getSharedPreferences( UbuntuInstallService.SHARED_PREF, Context.MODE_PRIVATE);
+        String command = pref.getString(UbuntuInstallService.PREF_KEY_UPDATE_COMMAND, "");
+        boolean ready = false;
+        if (!command.equals("")){
+            File f = new File(command);
+            if (f.exists()) {
+            	return true;
+            } else {
+            	pref.edit().putString(UbuntuInstallService.PREF_KEY_UPDATE_COMMAND, "").commit();
+            	return false;
+            }
+        }
+        return false;
+    }
 
     @SuppressWarnings("deprecation")
     public static long getFreeSpaceInBytes(String fsPath) {
@@ -188,5 +211,4 @@ public class Utils {
         long freeSpaceInBytes = ((long)availableBlocks) * ((long)blockSizeInBytes);
         return freeSpaceInBytes;
     }
-
 }
