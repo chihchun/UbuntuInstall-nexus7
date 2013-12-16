@@ -172,13 +172,13 @@ public class UbuntuInstallService extends IntentService {
     };
     
     class ECancelException extends Exception {
-    	public ECancelException(){
-    		super();
-    	}
+        public ECancelException(){
+            super();
+        }
 
-		public ECancelException(String string) {
-			// TODO Auto-generated constructor stub
-		}
+        public ECancelException(String string) {
+            // TODO Auto-generated constructor stub
+        }
     };
     
     public UbuntuInstallService() {
@@ -262,9 +262,9 @@ public class UbuntuInstallService extends IntentService {
             mServiceState = ServiceState.DELETING_USER_DATA;
             result = doDeleteUbuntuUserData(intent);
         } else {
-        	// for any other request broadcast service state
-        	result = new Intent(SERVICE_STATE);
-        	result.putExtra(SERVICE_STATE_EXTRA_STATE, mServiceState.ordinal());
+            // for any other request broadcast service state
+            result = new Intent(SERVICE_STATE);
+            result.putExtra(SERVICE_STATE_EXTRA_STATE, mServiceState.ordinal());
         }
         if (result != null) {
             sendBroadcast(result);
@@ -605,8 +605,8 @@ public class UbuntuInstallService extends IntentService {
             String jsonUrl = intent.getStringExtra(DOWNLOAD_RELEASE_EXTRA_CHANNEL_URL);
             boolean bootstrap = intent.getBooleanExtra(DOWNLOAD_RELEASE_EXTRA_BOOTSTRAP,true); // default bootstrap on
             int version = intent.getIntExtra(DOWNLOAD_RELEASE_EXTRA_VERSION,  -1);
-            ReleaseType releaseType = ReleaseType.values()
-                    [intent.getIntExtra(DOWNLOAD_RELEASE_EXTRA_TYPE, ReleaseType.FULL.ordinal())]; // by default look for full releases
+            ReleaseType releaseType = ReleaseType.fromValue(
+                    intent.getIntExtra(DOWNLOAD_RELEASE_EXTRA_TYPE, ReleaseType.FULL.getValue())); // by default look for full releases
 
             String jsonStr = Utils.httpDownload(BASE_URL + jsonUrl);
             List<Image> releases = JsonChannelParser.getAvailableReleases(jsonStr, ReleaseType.FULL);
@@ -700,11 +700,11 @@ public class UbuntuInstallService extends IntentService {
                 result.putExtra(DOWNLOAD_RESULT_EXTRA_STR, "IO Error");
                 return result;
             } catch (ECancelException e) {
-				// Download was cancelled by user
+                // Download was cancelled by user
                 result.putExtra(DOWNLOAD_RESULT_EXTRA_INT, -2);
                 result.putExtra(DOWNLOAD_RESULT_EXTRA_STR, "Download cancelled by user");
                 return result;
-			}
+            }
 
             Log.i(TAG, "Download done in " + (System.currentTimeMillis() - time )/1000 + " seconds");
             broadcastProgress(-1, "Generating update command");
@@ -812,7 +812,7 @@ public class UbuntuInstallService extends IntentService {
         
         while ((len = input.read(buffer)) > 0) {
             if (mIsCanceled) {
-            	throw new ECancelException("Cancelled");
+                throw new ECancelException("Cancelled");
             }
             output.write(buffer, 0, len);
             mProgress += len;
@@ -863,12 +863,12 @@ public class UbuntuInstallService extends IntentService {
         return null;
     }
     
-	private void broadcastServiceState() {
-		Intent i = new Intent(SERVICE_STATE);
-		i.putExtra(SERVICE_STATE, mServiceState.ordinal());
-		sendBroadcast(i);
-	}
-	
+    private void broadcastServiceState() {
+        Intent i = new Intent(SERVICE_STATE);
+        i.putExtra(SERVICE_STATE, mServiceState.ordinal());
+        sendBroadcast(i);
+    }
+    
     private void broadcastProgress(int val, String progress) {
         Intent i = new Intent(PROGRESS);
         i.putExtra(PROGRESS_EXTRA_INT, val);

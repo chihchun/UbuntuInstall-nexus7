@@ -32,7 +32,7 @@ public class InstallActivity extends Activity {
     private static final String TAG = "UbuntuInstaller";
 
     private enum ActivityStatus {
-    	NORMAL, FETCHING_CHANNELS, NO_CHANNELS, READY_TO_DOWNLOAD, DOWNLOADING, READY_TO_INSTALL, INSTALLING
+        NORMAL, FETCHING_CHANNELS, NO_CHANNELS, READY_TO_DOWNLOAD, DOWNLOADING, READY_TO_INSTALL, INSTALLING
     };
     
     private UbuntuButton mInstallButton;    
@@ -85,12 +85,12 @@ public class InstallActivity extends Activity {
         // do we know last activity
         if (mStatus == ActivityStatus.DOWNLOADING || mStatus == ActivityStatus.INSTALLING) {
             // request last progress / status. this will update UI accordingly
-           	startService(new Intent(UbuntuInstallService.GET_PROGRESS_STATUS));        	
+               startService(new Intent(UbuntuInstallService.GET_PROGRESS_STATUS));            
         } else {
-        	if (Utils.checkifReadyToInstall(this)) {
-	            mStatus = ActivityStatus.READY_TO_INSTALL;
-	        }
-        	updateUiElements();
+            if (Utils.checkifReadyToInstall(this)) {
+                mStatus = ActivityStatus.READY_TO_INSTALL;
+            }
+            updateUiElements();
         }
     }
     
@@ -113,7 +113,7 @@ public class InstallActivity extends Activity {
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
             case R.id.action_delete_download:
-	            deleteDownload();
+                deleteDownload();
                 mStatus = ActivityStatus.READY_TO_DOWNLOAD;
                 updateUiElements();
                 break;
@@ -140,10 +140,10 @@ public class InstallActivity extends Activity {
         startService(new Intent(UbuntuInstallService.GET_CHANNEL_LIST));
     }
     
-	private void deleteDownload() {
-		Intent action = new Intent(UbuntuInstallService.CLEAN_DOWNLOAD);
-		startService(action);
-	}
+    private void deleteDownload() {
+        Intent action = new Intent(UbuntuInstallService.CLEAN_DOWNLOAD);
+        startService(action);
+    }
     
     OnClickListener mInstallButtonListener = new OnClickListener() {
         @Override
@@ -178,8 +178,8 @@ public class InstallActivity extends Activity {
                                      true /* default latest settings*/).show();
             } else {
                 // there are no channels to pick from, this was mistake, disable button
-            	mStatus = ActivityStatus.NO_CHANNELS;
-            	updateUiElements();
+                mStatus = ActivityStatus.NO_CHANNELS;
+                updateUiElements();
             }
         }
     };
@@ -227,7 +227,7 @@ public class InstallActivity extends Activity {
         if (version != -1) {
             startDownload.putExtra(UbuntuInstallService.DOWNLOAD_RELEASE_EXTRA_VERSION, version);
         }
-        startDownload.putExtra(UbuntuInstallService.DOWNLOAD_RELEASE_EXTRA_TYPE, ReleaseType.FULL);
+        startDownload.putExtra(UbuntuInstallService.DOWNLOAD_RELEASE_EXTRA_TYPE, ReleaseType.FULL.getValue());
         startService(startDownload);
         mTerminal.setText(R.string.downloading_starting);
         mProgressBar.setProgress(0);
@@ -277,63 +277,63 @@ public class InstallActivity extends Activity {
     }
 
     private void updateUiElements() {
-    	switch (mStatus) {
-    		case NORMAL:
-    			mInstallButton.setText(Html.fromHtml(getResources().getString(R.string.install_button_label_fetching)));
-    			mInstallButton.setEnabled(false);
-    			mProgressBar.setEnabled(false);
-    			mProgressBar.setProgress(0);
-    			mProgressText.setText("");
-    			break;
-    		case FETCHING_CHANNELS:
-    			mInstallButton.setText(Html.fromHtml(getResources().getString(R.string.install_button_label_fetching)));
-    			mInstallButton.setEnabled(false);
-    			mProgressBar.setEnabled(false);
-    			mProgressBar.setProgress(0);
-    			mProgressText.setText("");
-    			break;    			
-    		case NO_CHANNELS:
-    			mInstallButton.setText(Html.fromHtml(getResources().getString(R.string.install_button_label_no_channel)));
-    			mInstallButton.setEnabled(false);
-    			mProgressBar.setEnabled(false);
-    			mProgressBar.setProgress(0);
-    			mProgressText.setText("");
-    			break;
-    		case READY_TO_DOWNLOAD:
-	            mInstallButton.setText(R.string.install_button_label_install);
-	            mInstallButton.setEnabled(true);
-	            mProgressBar.setEnabled(false);
-	            mProgressBar.setProgress(0);
-	            mProgressText.setText("");
-	            break;
-    		case READY_TO_INSTALL:
-    			mInstallButton.setText(R.string.install_button_label_resume);
-   	            mInstallButton.setEnabled(true);
-   	            mProgressBar.setEnabled(false);
-   	            mProgressBar.setProgress(0);
-   	            mProgressText.setText("");
-   	            break;
-    		case DOWNLOADING:
-    			mInstallButton.setText(R.string.install_button_label_cancel);
-   	            mInstallButton.setEnabled(true);
-   	            mProgressBar.setEnabled(true);
-   	            mProgressText.setText(R.string.downloading_release);
-   	            break;
-    		case INSTALLING:
-    			mInstallButton.setText(R.string.install_button_label_cancel);
-   	            mInstallButton.setEnabled(true);
-   	            mProgressBar.setEnabled(true);
-    			mProgressText.setText(R.string.installing_release);
-    			break;
-    	}
+        switch (mStatus) {
+            case NORMAL:
+                mInstallButton.setText(Html.fromHtml(getResources().getString(R.string.install_button_label_fetching)));
+                mInstallButton.setEnabled(false);
+                mProgressBar.setEnabled(false);
+                mProgressBar.setProgress(0);
+                mProgressText.setText("");
+                break;
+            case FETCHING_CHANNELS:
+                mInstallButton.setText(Html.fromHtml(getResources().getString(R.string.install_button_label_fetching)));
+                mInstallButton.setEnabled(false);
+                mProgressBar.setEnabled(false);
+                mProgressBar.setProgress(0);
+                mProgressText.setText("");
+                break;                
+            case NO_CHANNELS:
+                mInstallButton.setText(Html.fromHtml(getResources().getString(R.string.install_button_label_no_channel)));
+                mInstallButton.setEnabled(false);
+                mProgressBar.setEnabled(false);
+                mProgressBar.setProgress(0);
+                mProgressText.setText("");
+                break;
+            case READY_TO_DOWNLOAD:
+                mInstallButton.setText(R.string.install_button_label_install);
+                mInstallButton.setEnabled(true);
+                mProgressBar.setEnabled(false);
+                mProgressBar.setProgress(0);
+                mProgressText.setText("");
+                break;
+            case READY_TO_INSTALL:
+                mInstallButton.setText(R.string.install_button_label_resume);
+                   mInstallButton.setEnabled(true);
+                   mProgressBar.setEnabled(false);
+                   mProgressBar.setProgress(0);
+                   mProgressText.setText("");
+                   break;
+            case DOWNLOADING:
+                mInstallButton.setText(R.string.install_button_label_cancel);
+                   mInstallButton.setEnabled(true);
+                   mProgressBar.setEnabled(true);
+                   mProgressText.setText(R.string.downloading_release);
+                   break;
+            case INSTALLING:
+                mInstallButton.setText(R.string.install_button_label_cancel);
+                   mInstallButton.setEnabled(true);
+                   mProgressBar.setEnabled(true);
+                mProgressText.setText(R.string.installing_release);
+                break;
+        }
     }
     
     BroadcastReceiver mServiceObserver = new BroadcastReceiver() {
-    	
+        
         @SuppressWarnings("unchecked")
         @Override
         public void onReceive(Context context, Intent intent) {
-        	
+            
             String action = intent.getAction();
             // List of available channels fetched 
             if (action.equals(UbuntuInstallService.AVAILABLE_CHANNELS)) {
@@ -360,7 +360,7 @@ public class InstallActivity extends Activity {
                     Log.v(TAG, "Progress:" + progress);
                 }
                 if (p != null  && !p.equals("")) {
-                	// update terminal with progress text
+                    // update terminal with progress text
                     updateInfoOnUiThread(p);
                 }
 
@@ -380,11 +380,11 @@ public class InstallActivity extends Activity {
                     // if we still have download go back to resume installation
                     // TODO: we should distinguish between resume/retry
                     if (Utils.checkifReadyToInstall(context)) {
-                    	mStatus = ActivityStatus.READY_TO_INSTALL;
+                        mStatus = ActivityStatus.READY_TO_INSTALL;
                     } else {
-                    	mStatus = ActivityStatus.NORMAL;
-                    	deleteDownload();
-                    	requestChannelList();
+                        mStatus = ActivityStatus.NORMAL;
+                        deleteDownload();
+                        requestChannelList();
                     }
                     updateUiElements();
                 }
@@ -396,10 +396,10 @@ public class InstallActivity extends Activity {
                     Utils.showToast(context, "Download completed, ready to install Ubuntu");
                     startInstallationIfPossible();
                 } else {
-                	// make sure it was not cancelled by user
-                	if (r != -2) {
-                		Utils.showToast(context, "Downlload failed:");	
-                	}
+                    // make sure it was not cancelled by user
+                    if (r != -2) {
+                        Utils.showToast(context, "Downlload failed:");    
+                    }
                     String reason = intent.getStringExtra(UbuntuInstallService.INSTALL_RESULT_EXTRA_STR);
                     Utils.showToast(context, reason);
                     updateInfoOnUiThread(reason);
@@ -415,7 +415,7 @@ public class InstallActivity extends Activity {
                 if (!isFinishing()) {
                     // check what button should be shown
                     if (Utils.checkifReadyToInstall(context)) {
-                       	mStatus = ActivityStatus.READY_TO_INSTALL;
+                           mStatus = ActivityStatus.READY_TO_INSTALL;
                     }
                     updateUiElements();
                 }

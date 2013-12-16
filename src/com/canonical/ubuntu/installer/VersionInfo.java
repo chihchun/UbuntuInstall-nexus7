@@ -16,7 +16,28 @@ public class VersionInfo {
     private static final String TYPE = "type";
     
     public enum ReleaseType {
-        FULL, DELTA, UNKNOWN
+        FULL(0), 
+        DELTA(1), 
+        UNKNOWN(2);
+        private final int value;
+
+        private ReleaseType(final int newValue) {
+            value = newValue;
+        }
+
+        public int getValue() {
+            return value; 
+        }
+        
+        public static ReleaseType fromValue(final int value) {
+            switch (value) {
+                case 0: // FULL
+                    return FULL;
+                case 1: // DELTA
+                    return DELTA;
+            }
+            return UNKNOWN;
+        }
     };
     
     public final String mChannelAlias;
@@ -51,7 +72,7 @@ public class VersionInfo {
         mChannelJson = sp.getString( set + JSON, "");
         mDescription = sp.getString( set + DESCRIPTION, "");
         mVersion = sp.getInt( set + VERSION, -1);
-        mReleaseType = ReleaseType.values()[sp.getInt(TYPE, ReleaseType.DELTA.ordinal())]; // default is delta
+        mReleaseType = ReleaseType.fromValue(sp.getInt(TYPE, ReleaseType.FULL.getValue())); // default is FULL
     }
     
     public void storeVersion(SharedPreferences.Editor e, String set) {
@@ -73,7 +94,7 @@ public class VersionInfo {
     }
 
     public static boolean hasValidVersion(SharedPreferences sp, String set) {
-    return (-1 != sp.getInt(set + VERSION, -1));
+        return (-1 != sp.getInt(set + VERSION, -1));
     }
     
     public String getChannelAlias() {
@@ -93,10 +114,10 @@ public class VersionInfo {
     }
     
     public boolean isFullUpdate() {
-    	return ReleaseType.FULL == mReleaseType;
+        return ReleaseType.FULL == mReleaseType;
     }
     
     public ReleaseType getReleaseType() {
-    	return mReleaseType;
+        return mReleaseType;
     }
 }
