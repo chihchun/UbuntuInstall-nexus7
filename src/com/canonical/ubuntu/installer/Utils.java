@@ -23,6 +23,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.AssetManager;
+import android.os.StatFs;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -199,5 +200,15 @@ public class Utils {
             }
         }
         return false;
+    }
+
+    @SuppressWarnings("deprecation")
+    public static long getFreeSpaceInBytes(String fsPath) {
+        StatFs stats = new StatFs(fsPath);
+        // not using getAvailableBytes() for it's not available in android 4.2
+        int availableBlocks = stats.getAvailableBlocks();
+        int blockSizeInBytes = stats.getBlockSize();
+        long freeSpaceInBytes = ((long)availableBlocks) * ((long)blockSizeInBytes);
+        return freeSpaceInBytes;
     }
 }

@@ -113,6 +113,12 @@ public class UbuntuInstallService extends IntentService {
     private static final String URL_IMAGE_MASTER = "gpg/image-master.tar.xz";
     private static final String URL_IMAGE_SIGNING = "gpg/image-signing.tar.xz";
     private static final String ASC_SUFFIX = ".asc";
+
+    // 2G for file system, 512M for swap.
+    private static long INSTALL_SIZE_REQUIRED = (2048L + 512L) * 1024L * 1024L;
+    // 15M extra space to keep it safe.
+    private static long EXTRA_SIZE_REQUIRED = 15 * 1024 * 1024;
+
     
     /**
      * State of the service 
@@ -156,6 +162,7 @@ public class UbuntuInstallService extends IntentService {
     private static final int PROGRESS_MKSWAP_ADJUSTMENT = 17; // equivalent of time tar --checkpoint=200
     private PowerManager mPowerManager;
     private PowerManager.WakeLock mWakeLock;
+    private boolean workPathInCache = false;
     private String mRootOfWorkPath;
     private boolean mIsCanceled;
     
@@ -195,8 +202,10 @@ public class UbuntuInstallService extends IntentService {
         if (testDir.mkdir()) {
             testDir.delete();
             mRootOfWorkPath = "/cache";
+            workPathInCache = true;
         } else {
             mRootOfWorkPath = getFilesDir().toString(); //  "/data/data/com.canonical.ubuntuinstaller/files";
+            workPathInCache = false;
         }
         mServiceState = ServiceState.READY;
     }
@@ -617,23 +626,23 @@ public class UbuntuInstallService extends IntentService {
             // get right version, otherwise first since that is most recent one
             Image choosenRelease = null;
             if (version != -1) {
-            // look for given release
-            for (Image i : releases) {
-            if (i.version == version) {
-            choosenRelease = i;
-            break;
-            }
-            }
-            if (choosenRelease == null) {
+                // look for given release
+                for (Image i : releases) {
+                    if (i.version == version) {
+                        choosenRelease = i;
+                        break;
+                    }
+                }
+                if (choosenRelease == null) {
                     Log.e(TAG, "wrong release vwersion");
                     result.putExtra(DOWNLOAD_RESULT_EXTRA_INT, -1);
                     result.putExtra(DOWNLOAD_RESULT_EXTRA_STR, "wrong release vwersion");
-                    return result;            
-            }
+                    return result;
+                }
             } else {
-            choosenRelease = releases.get(0);
+                choosenRelease = releases.get(0);
             }
-            JsonChannelParser.File updateFiles[] = choosenRelease.files;           
+            JsonChannelParser.File updateFiles[] = choosenRelease.files;
             // sort update files
             List<JsonChannelParser.File> filesArray = new LinkedList<JsonChannelParser.File>();
             for(JsonChannelParser.File f: updateFiles) {
@@ -645,7 +654,7 @@ public class UbuntuInstallService extends IntentService {
             // get list of keyrings to download
             String keyrings[] = {
                     String.format("%s/%s",BASE_URL, URL_IMAGE_MASTER),
-                    String.format("%s/%s",BASE_URL, URL_IMAGE_SIGNING),                    
+                    String.format("%s/%s",BASE_URL, URL_IMAGE_SIGNING),
             };            
             String keyringsFilenames[] = new String[keyrings.length * 2];
                               
@@ -666,6 +675,22 @@ public class UbuntuInstallService extends IntentService {
             mProgress = 0;
             broadcastProgress(mLastSignalledProgress, null);
             mTotalSize = Utils.calculateDownloadSize(filesArray);
+
+            boolean isStorageEnough = isStorageSpaceEnoughtBFDownload(mTotalSize);
+            if (! isStorageEnough) {
+                String msg = "Need more storage: ";
+                if (workPathInCache) {
+                    msg += "/cache need " + String.valueOf(mTotalSize) + " bytes for download and /data need 2.5G for system";
+                } else {
+                    msg += "/data need 2.5G for system plus " + String.valueOf(mTotalSize) + " bytes for download";
+                }
+                Log.i(TAG, msg);
+
+                result.putExtra(DOWNLOAD_RESULT_EXTRA_INT, -1);
+                result.putExtra(DOWNLOAD_RESULT_EXTRA_STR, msg);
+                return result;
+            }
+
             // mProgressSteps = mTotalDownloadSize / 100; // we want 1% steps
             try {
                 int i = 0;
@@ -674,7 +699,7 @@ public class UbuntuInstallService extends IntentService {
                     // download signature
                     keyringsFilenames[i++] = doDownloadUrl(new URL(url+ASC_SUFFIX),release);
                 }
-                
+
                 // download all update images
                 i = 0;
                 for (JsonChannelParser.File file : filesArray){
@@ -874,4 +899,31 @@ public class UbuntuInstallService extends IntentService {
         }
         sendBroadcast(i);
     }
+    
+    /**
+     * Check whether storage free space is enough.
+     * @param downloadSize: download size from json. 0 means file already downloaded.
+     * @return true if stoarge size is ok to go.
+     */
+    private boolean isStorageSpaceEnoughtBFDownload(long downloadSize) {
+        long dataSizeRequired = INSTALL_SIZE_REQUIRED;
+
+        if (workPathInCache) {
+            if (downloadSize > 0) {
+                long cacheFreeSpace = Utils.getFreeSpaceInBytes("/cache");
+                if (cacheFreeSpace < EXTRA_SIZE_REQUIRED + downloadSize) {
+                    return false;
+                }
+            }
+        } else {
+            dataSizeRequired += downloadSize;
+        }
+
+        long dataFreeSpace = Utils.getFreeSpaceInBytes("/data");
+        if (dataFreeSpace < EXTRA_SIZE_REQUIRED + dataSizeRequired) {
+            return false;
+        }
+        return true;
+    }
+
 }
