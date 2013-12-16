@@ -239,39 +239,39 @@ public class InstallActivity extends Activity {
     
     private void downloadVersion(final Context context, final String channel, final boolean bootstrap) {
         final ProgressDialog progress = ProgressDialog.show(this, 
-        "Fetching versions", 
-        "Checking list of availanble versions for choosen channel", true);
+                "Fetching versions", 
+                "Checking list of availanble versions for choosen channel", true);
         new Thread(new Runnable() {
             @Override
             public void run() {
                 String jsonStr = Utils.httpDownload(UbuntuInstallService.BASE_URL 
-                + mAvailableChannels.get(channel));
+                        + mAvailableChannels.get(channel));
                 // TODO: handle malformed JSON
                 final List<Image> releases = JsonChannelParser.getAvailableReleases(jsonStr, JsonChannelParser.ReleaseType.FULL);
-                
+
                 runOnUiThread(new Runnable() {
-            @Override
+                    @Override
                     public void run() {
                         progress.dismiss();
                         // if there are available releases, show number picker
                         if (releases.size() != 0 && releases.get(0).files.length != 0) {
-                        int[] values = new int[releases.size()];
-                        for (int i = 0 ; i < values.length ; ++i) {
-                        values[i] = releases.get(i).version;
+                            int[] values = new int[releases.size()];
+                            for (int i = 0 ; i < values.length ; ++i) {
+                                values[i] = releases.get(i).version;
+                            }
+                            new NumberPickerDialog(context, 
+                                    R.string.version_picker_dialog_title,
+                                    R.string.action_install,
+                                    R.string.cancel,
+                                    values,
+                                    0, 
+                                    new NumberPickerDialog.OnNumberPicktListener() {
+                                @Override
+                                public void onNumberSelected(Context context, int value) {
+                                    startDownload(channel, bootstrap, value);
+                                }
+                            }).show();;
                         }
-                        new NumberPickerDialog(context, 
-                        R.string.version_picker_dialog_title,
-                        R.string.action_install,
-                        R.string.cancel,
-                        values,
-                        0, 
-                        new NumberPickerDialog.OnNumberPicktListener() {
-        @Override
-        public void onNumberSelected(Context context, int value) {
-        startDownload(channel, bootstrap, value);
-        }
-        }).show();;
-                        }                        
                     }
                 });
             }

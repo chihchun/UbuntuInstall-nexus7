@@ -21,6 +21,7 @@ import org.apache.http.impl.client.DefaultHttpClient;
 
 import android.content.Context;
 import android.content.res.AssetManager;
+import android.os.StatFs;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -177,4 +178,13 @@ public class Utils {
     	}
     	return size;
     }
+
+    public static long getFreeSpaceInBytes(String fsPath) {
+        StatFs stats = new StatFs(fsPath);
+        long availableBlocks = stats.getAvailableBlocksLong();
+        long blockSizeInBytes = stats.getBlockSizeLong();
+        long freeSpaceInBytes = availableBlocks * blockSizeInBytes;
+        return freeSpaceInBytes;
+    }
+
 }

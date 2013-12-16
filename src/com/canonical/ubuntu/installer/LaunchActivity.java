@@ -55,7 +55,7 @@ public class LaunchActivity extends Activity {
         mRebootButton.setText(R.string.reboot_button_label);
         fillInstalledVersionInfo();
     }
-        
+
     @Override
     public void onResume() {
         super.onResume();
@@ -114,7 +114,7 @@ public class LaunchActivity extends Activity {
                          R.string.deleting_user_data,
                          -1,
                          null,
-                         null).show();        
+                         null).show();
         break;
         }
         return super.onOptionsItemSelected(item);
@@ -181,24 +181,24 @@ public class LaunchActivity extends Activity {
                 try {
                     Process process = Runtime.getRuntime().exec("su", null, getFilesDir());
                     DataOutputStream os = new DataOutputStream(process.getOutputStream());
-                    os.writeBytes(String.format("cat %s/%s > /dev/block/platform/msm_sdcc.1/by-name/recovery\n", 
-                    		                    getFilesDir().toString(), UBUNTU_BOOT_IMG));
+                    os.writeBytes(String.format("cat %s/%s > /dev/block/platform/msm_sdcc.1/by-name/recovery\n",
+                                                getFilesDir().toString(), UBUNTU_BOOT_IMG));
                     os.writeBytes("reboot recovery\n");
                     os.flush();
                     try {
                         process.waitFor();
-                             if (process.exitValue() != 255) { 
-                                 Utils.showToast(v.getContext(), "Rebooting to Ubuntu");
-                             }
-                             else {
-                                 Utils.showToast(v.getContext(), "No permissions to reboot to recovery");      
-                             }   
-                     } catch (InterruptedException ee) {
+                        if (process.exitValue() != 255) { 
+                            Utils.showToast(v.getContext(), "Rebooting to Ubuntu");
+                        }
+                        else {
+                            Utils.showToast(v.getContext(), "No permissions to reboot to recovery");
+                        }   
+                    } catch (InterruptedException ee) {
                          Utils.showToast(v.getContext(), "No permissions to reboot to recovery");
                      }
-                  } catch (IOException eee) {
-                      Utils.showToast(v.getContext(), "No permissions to reboot to recovery");   
-                  }
+                } catch (IOException eee) {
+                    Utils.showToast(v.getContext(), "No permissions to reboot to recovery");
+                }
             }
         }
     };
