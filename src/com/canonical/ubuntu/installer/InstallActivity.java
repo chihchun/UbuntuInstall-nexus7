@@ -324,6 +324,7 @@ public class InstallActivity extends Activity {
    	            mInstallButton.setEnabled(true);
    	            mProgressBar.setEnabled(true);
     			mProgressText.setText(R.string.installing_release);
+    			break;
     	}
     }
     
