@@ -111,7 +111,7 @@ public class UbuntuInstallService extends IntentService {
 
     // 2G for file system, 512M for swap.
     private static long INSTALL_SIZE_REQUIRED = (2048L + 512L) * 1024L * 1024L;
-    // 15M extra space to keep it save
+    // 15M extra space to keep it safe.
     private static long EXTRA_SIZE_REQUIRED = 15 * 1024 * 1024;
 
     
@@ -864,7 +864,7 @@ public class UbuntuInstallService extends IntentService {
     }
     
     /**
-     * Check whether storage free space is eought.
+     * Check whether storage free space is enough.
      * @param downloadSize: download size from json. 0 means file already downloaded.
      * @return true if stoarge size is ok to go.
      */

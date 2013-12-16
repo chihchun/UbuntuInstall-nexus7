@@ -179,11 +179,13 @@ public class Utils {
     	return size;
     }
 
+    @SuppressWarnings("deprecation")
     public static long getFreeSpaceInBytes(String fsPath) {
         StatFs stats = new StatFs(fsPath);
-        long availableBlocks = stats.getAvailableBlocksLong();
-        long blockSizeInBytes = stats.getBlockSizeLong();
-        long freeSpaceInBytes = availableBlocks * blockSizeInBytes;
+        // not using getAvailableBytes() for it's not available in android 4.2
+        int availableBlocks = stats.getAvailableBlocks();
+        int blockSizeInBytes = stats.getBlockSize();
+        long freeSpaceInBytes = ((long)availableBlocks) * ((long)blockSizeInBytes);
         return freeSpaceInBytes;
     }
 
