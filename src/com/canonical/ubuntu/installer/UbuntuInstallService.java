@@ -592,9 +592,6 @@ public class UbuntuInstallService extends IntentService {
         mWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ufa-downloading");
         mIsCanceled = false;
         SharedPreferences.Editor editor = getSharedPreferences( SHARED_PREF, Context.MODE_PRIVATE).edit();
-        editor.putString(PREF_KEY_UPDATE_COMMAND, "");
-        VersionInfo.storeEmptyVersion( editor, PREF_KEY_DOWNLOADED_VERSION);
-        editor.commit();
 
         Intent result = new Intent(DOWNLOAD_RESULT);
         try {
@@ -857,7 +854,7 @@ public class UbuntuInstallService extends IntentService {
             SharedPreferences pref = getSharedPreferences( SHARED_PREF, Context.MODE_PRIVATE);
             SharedPreferences.Editor editor = pref.edit();
             editor.putString(PREF_KEY_UPDATE_COMMAND, "");
-            VersionInfo.storeEmptyVersion(editor, PREF_KEY_INSTALLED_VERSION);
+            VersionInfo.storeEmptyVersion(editor, PREF_KEY_DOWNLOADED_VERSION);
             editor.commit();
         }
         return null;

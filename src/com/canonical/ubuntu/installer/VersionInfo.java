@@ -94,6 +94,9 @@ public class VersionInfo {
     }
 
     public static boolean hasValidVersion(SharedPreferences sp, String set) {
+        int v = sp.getInt(set + VERSION, -1);
+        String s1 = sp.getString(set + ALIAS, "");
+        String s2 = sp.getString(set + JSON, "");
         return (-1 != sp.getInt(set + VERSION, -1));
     }
     
