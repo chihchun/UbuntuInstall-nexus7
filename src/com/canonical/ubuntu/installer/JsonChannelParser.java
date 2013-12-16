@@ -5,6 +5,7 @@ import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 
+import com.canonical.ubuntu.installer.VersionInfo.ReleaseType;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -14,11 +15,6 @@ public class JsonChannelParser {
     
     public final static String FULL_RELEASE = "full";
     public final static String DELTA_RELEASE = "delta";
-    
-    public enum ReleaseType {
-        FULL, DELTA, UNKNOWN
-    };
-    
     
     // JSON supporting classes 
     public class File {

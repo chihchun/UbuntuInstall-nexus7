@@ -1,13 +1,7 @@
 package com.canonical.ubuntu.installer;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
 
 import android.content.SharedPreferences;
-import android.os.Parcel;
-import android.os.Parcelable;
-
 
 /**
  * Version holder
@@ -19,11 +13,17 @@ public class VersionInfo {
     private static final String JSON = "_json";
     private static final String DESCRIPTION = "_description";
     private static final String VERSION = "_version";
+    private static final String TYPE = "type";
+    
+    public enum ReleaseType {
+        FULL, DELTA, UNKNOWN
+    };
     
     public final String mChannelAlias;
     public final String mChannelJson;
     public final String mDescription;
     public final int mVersion;
+    public final ReleaseType mReleaseType;
     
     // empty constructor
     public VersionInfo() {
@@ -31,16 +31,19 @@ public class VersionInfo {
         mChannelJson = "";
         mDescription = "";
         mVersion = -1;
+        mReleaseType = ReleaseType.UNKNOWN;
     }
             
     public VersionInfo(String channelAlias,
                 String channleJson,
                 String description,
-                int version) {
+                int version, 
+                ReleaseType type) {
         mChannelAlias = channelAlias;
         mChannelJson = channleJson;
         mDescription = description;
         mVersion = version;
+        mReleaseType = type;
     }
     
     public VersionInfo( SharedPreferences sp, String set ) {
@@ -48,20 +51,25 @@ public class VersionInfo {
         mChannelJson = sp.getString( set + JSON, "");
         mDescription = sp.getString( set + DESCRIPTION, "");
         mVersion = sp.getInt( set + VERSION, -1);
+        mReleaseType = ReleaseType.values()[sp.getInt(TYPE, ReleaseType.DELTA.ordinal())]; // default is delta
     }
     
     public void storeVersion(SharedPreferences.Editor e, String set) {
         e.putString(set+ALIAS, mChannelAlias)
             .putString(set + JSON, mChannelJson)
             .putString(set + DESCRIPTION, mDescription)
-            .putInt(set + VERSION, mVersion).commit();
+            .putInt(set + VERSION, mVersion)
+            .putInt(set + TYPE, mReleaseType.ordinal())
+            .commit();
     }
 
     public static void storeEmptyVersion(SharedPreferences.Editor e, String set) {
         e.putString(set+ALIAS, "")
             .putString(set + JSON, "")
             .putString(set + DESCRIPTION, "")
-            .putInt(set + VERSION, -1).commit();
+            .putInt(set + VERSION, -1)
+            .putInt(set + TYPE, ReleaseType.UNKNOWN.ordinal())
+            .commit();
     }
 
     public static boolean hasValidVersion(SharedPreferences sp, String set) {
@@ -82,5 +90,13 @@ public class VersionInfo {
     
     public int getVersion() {
         return mVersion;
+    }
+    
+    public boolean isFullUpdate() {
+    	return ReleaseType.FULL == mReleaseType;
+    }
+    
+    public ReleaseType getReleaseType() {
+    	return mReleaseType;
     }
 }
