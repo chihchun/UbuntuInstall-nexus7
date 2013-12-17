@@ -185,9 +185,21 @@ public class UbuntuInstallService extends IntentService {
 
         public ECancelException(String string) {
             // TODO Auto-generated constructor stub
+            super(string);
         }
     };
-    
+
+    class ESumNotMatchException extends Exception {
+        public ESumNotMatchException(){
+            super();
+        }
+
+        public ESumNotMatchException(String string) {
+            // TODO Auto-generated constructor stub
+            super(string);
+        }
+    };
+
     public UbuntuInstallService() {
         super("UbuntuInstallService");
     }
@@ -703,7 +715,22 @@ public class UbuntuInstallService extends IntentService {
                 // download all update images
                 i = 0;
                 for (JsonChannelParser.File file : filesArray){
-                    updateFilenames[i++] = doDownloadUrl(new URL(BASE_URL + file.path),release);
+                    updateFilenames[i] = doDownloadUrl(new URL(BASE_URL + file.path),release);
+
+                    // check file size and check sum
+                    File f = new File(release, updateFilenames[i]);
+                    long length = f.length();
+                    if (length != file.size) {
+                        f.delete();
+                        throw new ESumNotMatchException();
+                    }
+                    String sha256sum = Utils.getSha256Sum(f);
+                    if (! sha256sum.equals(file.checksum)) {
+                        f.delete();
+                        throw new ESumNotMatchException();
+                    }
+                    i++;
+
                     updateFilenames[i++] = doDownloadUrl(new URL(BASE_URL + file.signature),release);
                 }
             } catch (MalformedURLException e) {
@@ -720,6 +747,11 @@ public class UbuntuInstallService extends IntentService {
                 Log.e(TAG, "Failed to download release:", e);
                 result.putExtra(DOWNLOAD_RESULT_EXTRA_INT, -1);
                 result.putExtra(DOWNLOAD_RESULT_EXTRA_STR, "IO Error");
+                return result;
+            } catch (ESumNotMatchException e) {
+                // Download file check sum error !!
+                result.putExtra(DOWNLOAD_RESULT_EXTRA_INT, -1);
+                result.putExtra(DOWNLOAD_RESULT_EXTRA_STR, "Download check sum error");
                 return result;
             } catch (ECancelException e) {
                 // Download was cancelled by user
