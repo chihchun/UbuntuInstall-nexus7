@@ -174,10 +174,16 @@ public class LaunchActivity extends Activity {
                 PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
                 powerManager.reboot("recovery");
             } catch (Exception e) {
+                // FIXME: in Android 4.4, we do not get power manager permission.
                 // try it with SU permissions
                 try {
                     Process process = Runtime.getRuntime().exec("su", null, getFilesDir());
                     DataOutputStream os = new DataOutputStream(process.getOutputStream());
+                    // FIXME: this should move back to UbuntuInstallService
+                    os.writeBytes(String.format("cat %s/%s > %s\n",
+                    getFilesDir().toString(),
+                    UbuntuInstallService.UBUNTU_BOOT_IMG,
+                    Utils.getRecoveryPartitionPath()));
                     os.writeBytes("reboot recovery\n");
                     os.flush();
                     try {
