@@ -74,7 +74,7 @@ public class Utils {
 				String result= convertStreamToString(instream);
 				// now you have the string representation of the HTML request
 
-				Log.i(TAG, result);
+				// Log.i(TAG, result);
 
 				instream.close();
 
@@ -184,27 +184,6 @@ public class Utils {
     	}
     	return size;
     }
-    
-    /**
-     * Check if there is downloaded release ready to install
-     * @param context
-     * @return true if there is downloaded release ready to install
-     */
-    public static boolean checkifReadyToInstall(Context context) {
-        SharedPreferences pref = context.getSharedPreferences( UbuntuInstallService.SHARED_PREF, Context.MODE_PRIVATE);
-        String command = pref.getString(UbuntuInstallService.PREF_KEY_UPDATE_COMMAND, "");
-        boolean ready = false;
-        if (!command.equals("")){
-            File f = new File(command);
-            if (f.exists()) {
-            	return true;
-            } else {
-            	pref.edit().putString(UbuntuInstallService.PREF_KEY_UPDATE_COMMAND, "").commit();
-            	return false;
-            }
-        }
-        return false;
-    }
 
     @SuppressWarnings("deprecation")
     public static long getFreeSpaceInBytes(String fsPath) {
@@ -225,7 +204,7 @@ public class Utils {
         }
         return "";
     }
-    
+
     public static String getRecoveryPartitionPath() {
         String deviceModel = Build.DEVICE.toLowerCase(Locale.US);
         if ("mako".equals(deviceModel)) {
