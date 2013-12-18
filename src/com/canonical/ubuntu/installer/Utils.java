@@ -12,6 +12,7 @@ import java.io.Reader;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.util.List;
+import java.util.Locale;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -23,6 +24,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.AssetManager;
+import android.os.Build;
 import android.os.StatFs;
 import android.util.Log;
 import android.widget.Toast;
@@ -211,4 +213,25 @@ public class Utils {
         long freeSpaceInBytes = ((long)availableBlocks) * ((long)blockSizeInBytes);
         return freeSpaceInBytes;
     }
+    
+    static String getBootPartitionPath() {
+        String deviceModel = Build.DEVICE.toLowerCase(Locale.US);
+        if ("mako".equals(deviceModel)) {
+            return UbuntuInstallService.MAKO_PARTITION_BOOT;
+        } else if ("maguro".equals(deviceModel)) {
+            return UbuntuInstallService.MAGURO_PARTITION_BOOT;
+        }
+        return "";
+    }
+    
+    static String getRecoveryPartitionPath() {
+        String deviceModel = Build.DEVICE.toLowerCase(Locale.US);
+        if ("mako".equals(deviceModel)) {
+            return UbuntuInstallService.MAKO_PARTITION_RECOVERY;
+        } else if ("maguro".equals(deviceModel)) {
+            return UbuntuInstallService.MAGURO_PARTITION_RECOVERY;
+        }
+        return "";
+    }
+
 }

@@ -58,6 +58,11 @@ public class UbuntuInstallService extends IntentService {
     public final static boolean DEFAULT_UNINSTALL_DEL_USER_DATA = false;
     public final static boolean DEFAULT_INSTALL_BOOTSTRAP = false;
     public final static String DEFAULT_CHANNEL_ALIAS = "trusty";
+    public final static String UBUNTU_BOOT_IMG = "ubuntu-boot.img";
+    public final static String MAKO_PARTITION_BOOT = "/dev/block/platform/msm_sdcc.1/by-name/boot";
+    public final static String MAKO_PARTITION_RECOVERY = "/dev/block/platform/msm_sdcc.1/by-name/recovery";
+    public final static String MAGURO_PARTITION_BOOT = "/dev/block/platform/omap/omap_hsmmc.0/by-name/boot";
+    public final static String MAGURO_PARTITION_RECOVERY = "/dev/block/platform/omap/omap_hsmmc.0/by-name/recovery";
     
     // =================================================================================================
     // Service Actions
@@ -286,7 +291,7 @@ public class UbuntuInstallService extends IntentService {
         // 
         HashMap<String, String> channels= new HashMap<String, String>();
         boolean includeHidden = getSharedPreferences( SHARED_PREF, Context.MODE_PRIVATE).getBoolean(PREF_KEY_DEVELOPER, false);
-        String deviceModel = Build.BOARD.toLowerCase(Locale.US);
+        String deviceModel = Build.DEVICE.toLowerCase(Locale.US);
         String channelJsonStr = Utils.httpDownload(BASE_URL + CHANNELS_JSON);
         if (channelJsonStr != null) {
             JSONObject list;
@@ -376,9 +381,15 @@ public class UbuntuInstallService extends IntentService {
             try {
                 Process process = Runtime.getRuntime().exec("su", null, supportingFiles);
                 DataOutputStream os = new DataOutputStream(process.getOutputStream());
-                os.writeBytes("sh " + UPDATE_SCRIPT 
-                                    + " " + updateCommand 
-                                    + " " + getFilesDir().toString() + "\n"); 
+                os.writeBytes(String.format("sh %s %s %s\n",
+                                    UPDATE_SCRIPT,
+                                    updateCommand,
+                                    getFilesDir().toString()
+                                    ));
+                os.writeBytes(String.format("cat %s/%s > %s\n", 
+                                    getFilesDir().toString(), 
+                                    UBUNTU_BOOT_IMG, 
+                                    Utils.getRecoveryPartitionPath()));
                 // close terminal
                 os.writeBytes("exit\n");
                 os.flush();
@@ -437,14 +448,13 @@ public class UbuntuInstallService extends IntentService {
                         // still running, wait a bit
                         try { Thread.sleep(200); } catch(Exception ex) {}
                     }
-                } while (running);            
+                } while (running);
             }catch (IOException e) {
                 e.printStackTrace();
                 Log.w(TAG, "Update failed");
                 result.putExtra(INSTALL_RESULT_EXTRA_INT, -1);
                 result.putExtra(INSTALL_RESULT_EXTRA_STR, "Install failed");
                 return result;
-
             }
         } finally {
             if (mWakeLock != null && mWakeLock.isHeld()) {
@@ -834,6 +844,8 @@ public class UbuntuInstallService extends IntentService {
         
         while ((len = input.read(buffer)) > 0) {
             if (mIsCanceled) {
+                output.close();
+                input.close();
                 throw new ECancelException("Cancelled");
             }
             output.write(buffer, 0, len);

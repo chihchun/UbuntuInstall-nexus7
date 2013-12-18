@@ -24,7 +24,6 @@ import android.widget.TextView;
 
 public class LaunchActivity extends Activity {
     private static final String TAG = "UbuntuLaunchActivity";
-    private static final String UBUNTU_BOOT_IMG = "ubuntu-boot.img";
     private UbuntuButton mRebootButton;
     private TextView mTextChannel;
     private TextView mTextChannelLabel;
@@ -181,8 +180,10 @@ public class LaunchActivity extends Activity {
                 try {
                     Process process = Runtime.getRuntime().exec("su", null, getFilesDir());
                     DataOutputStream os = new DataOutputStream(process.getOutputStream());
-                    os.writeBytes(String.format("cat %s/%s > /dev/block/platform/msm_sdcc.1/by-name/recovery\n", 
-                                                getFilesDir().toString(), UBUNTU_BOOT_IMG));
+                    os.writeBytes(String.format("cat %s/%s > %s\n", 
+                                                getFilesDir().toString(), 
+                                                UbuntuInstallService.UBUNTU_BOOT_IMG,
+                                                Utils.getRecoveryPartitionPath()));
                     os.writeBytes("reboot recovery\n");
                     os.flush();
                     try {
