@@ -12,7 +12,6 @@
     <uses-permission android:name="android.permission.ACCESS_SUPERUSER"/>
     <uses-permission android:name="android.permission.WRITE_SETTINGS"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.REBOOT"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -22,6 +21,7 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.ACCESS_CACHE_FILESYSTEM" />
+    <uses-permission android:name="android.permission.REBOOT"/>
 
     <application
         android:allowBackup="true"
@@ -60,6 +60,7 @@
                 <action android:name="com.canonical.ubuntuinstaller.UbuntuInstallService.DELETE_USER_DATA" />
                 <action android:name="com.canonical.ubuntuinstaller.UbuntuInstallService.GET_SERVICE_STATE" />
                 <action android:name="com.canonical.ubuntuinstaller.UbuntuInstallService.GET_PROGRESS_STATUS" />
+                <action android:name="com.canonical.ubuntuinstaller.UbuntuInstallService.REBOOT_UBUNTU" />
             </intent-filter>
         </service>
     </application>

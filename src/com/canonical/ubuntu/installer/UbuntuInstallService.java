@@ -32,8 +32,6 @@ import android.os.PowerManager;
 import android.util.Log;
 import android.webkit.URLUtil;
 
-
-
 public class UbuntuInstallService extends IntentService {
     private static final String TAG = "UbuntuInstallService";
     
@@ -89,7 +87,8 @@ public class UbuntuInstallService extends IntentService {
     public static final String DELETE_UBUNTU_USER_DATA = "com.canonical.ubuntuinstaller.UbuntuInstallService.DELETE_USER_DATA";
     public static final String GET_SERVICE_STATE = "com.canonical.ubuntuinstaller.UbuntuInstallService.GET_SERVICE_STATE";
     public static final String GET_PROGRESS_STATUS = "com.canonical.ubuntuinstaller.UbuntuInstallService.GET_PROGRESS_STATUS";
-    
+    public static final String REBOOT_UBUNTU = "com.canonical.ubuntuinstaller.UbuntuInstallService.REBOOT_UBUNTU";
+
     // =================================================================================================
     // Service broadcast
     // =================================================================================================
@@ -211,7 +210,7 @@ public class UbuntuInstallService extends IntentService {
     };
 
     public UbuntuInstallService() {
-        super("UbuntuInstallService");
+        super(TAG);
     }
     
     @Override
@@ -284,6 +283,10 @@ public class UbuntuInstallService extends IntentService {
         } else if (action.equals(DELETE_UBUNTU_USER_DATA)) {  
             mServiceState = InstallerState.DELETING_USER_DATA;
             result = doDeleteUbuntuUserData(intent);
+        } else if(action.equals(REBOOT_UBUNTU)) {
+            Log.d(TAG, this.toString() + ": REBOOT_UBUNTU");
+            doReboot(intent);
+            return;
         } else {
             // for any other request broadcast service state
             result = new Intent(SERVICE_STATE);
@@ -553,7 +556,7 @@ public class UbuntuInstallService extends IntentService {
         result.putExtra("result", r);
         return result;
     }
-    
+
     private Intent doDeleteUbuntuUserData(Intent intent) {
         Intent result = new Intent(VERSION_UPDATE);
         File workingFolder = new File(mRootOfWorkPath, TEMP_FOLDER);
@@ -565,6 +568,46 @@ public class UbuntuInstallService extends IntentService {
         result.putExtra("result", r);
         return result;
     }
+
+    private void doReboot(Intent intent) {
+        // Reboot to recovery to complete update, try power manager if we have permissions
+        try {
+            PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            powerManager.reboot("recovery");
+        } catch (SecurityException e) {
+            // FIXME: in Android 4.4, we do not get power manager permission.
+            // try it with SU permissions
+            try {
+                Process process = Runtime.getRuntime().exec("su", null, getFilesDir());
+                DataOutputStream os = new DataOutputStream(process.getOutputStream());
+
+                Utils.extractExecutableAsset(this, ANDROID_BOOTMGR, getFilesDir().toString(), true);
+                // overwrite the recovery partition.
+                os.writeBytes(String.format("%s/%s -b %s/%s %s\n",
+                        getFilesDir().toString(),
+                        ANDROID_BOOTMGR,
+                        getFilesDir().toString(),
+                        UBUNTU_BOOT_IMG,
+                        Utils.getRecoveryPartitionPath()
+                        ));
+                os.writeBytes("reboot recovery\n");
+                os.flush();
+                try {
+                    process.waitFor();
+                    if (process.exitValue() != 255) {
+                        Utils.showToast(this.getApplicationContext(), "Rebooting to Ubuntu");
+                    } else {
+                        Utils.showToast(this.getApplicationContext(),  "No permissions to reboot to recovery");
+                    }
+                } catch (InterruptedException ee) {
+                    Utils.showToast(this.getApplicationContext(), "No permissions to reboot to recovery");
+                }
+            } catch (IOException eee) {
+                Utils.showToast(this.getApplicationContext(), "No permissions to reboot to recovery");
+            }
+        }
+    }
+
     /**
      * 
      * @param result intent to update with result text
