@@ -130,22 +130,11 @@ public class UbuntuInstallService extends IntentService {
      */
     public enum InstallerState {
         READY, FETCHING_CHANNELS, DOWNLOADING, INSTALLING, UNINSTALLING, DELETING_USER_DATA;
-        public static InstallerState fromOrdian(int ordian) {
-            if (ordian == FETCHING_CHANNELS.ordinal()) {
-                return FETCHING_CHANNELS;
-            } else if (ordian == DOWNLOADING.ordinal()) {
-                return DOWNLOADING;
-            } else if (ordian == INSTALLING.ordinal()) {
-                return INSTALLING;
-            } else if (ordian == UNINSTALLING.ordinal()) {
-                return UNINSTALLING;
-            } else if (ordian == DELETING_USER_DATA.ordinal()) {
-                return DELETING_USER_DATA;
-            }
-            return READY;
-        }
+        public static InstallerState fromOrdian(int ordianl) {
+            return InstallerState.values()[ordianl];
+         }
     }
-    
+
     // =================================================================================================
     // Packed assets
     // =================================================================================================
