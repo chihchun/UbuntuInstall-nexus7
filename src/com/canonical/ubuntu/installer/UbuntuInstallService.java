@@ -295,7 +295,7 @@ public class UbuntuInstallService extends IntentService {
         mServiceState = InstallerState.READY;
         Log.d(TAG, this.toString() + " onHandleIntent: " + action + " END");
     }
-    
+
     private Intent doGetChannelList(Intent intent) {
         Intent result = new Intent(AVAILABLE_CHANNELS);
         // 
@@ -392,6 +392,8 @@ public class UbuntuInstallService extends IntentService {
             try {
                 Process process = Runtime.getRuntime().exec("su", null, supportingFiles);
                 DataOutputStream os = new DataOutputStream(process.getOutputStream());
+                // debug purpose.
+                // os.writeBytes("set -x\n");
                 // run system-image-upgrader.
                 os.writeBytes(String.format("sh %s %s %s\n",
                         UPDATE_SCRIPT,
@@ -399,14 +401,18 @@ public class UbuntuInstallService extends IntentService {
                         getFilesDir().toString()
                         ));
                 // backup original recovery.
-                os.writeBytes(String.format("sh %s -b %s %s/%s\n",
-                        ANDROID_BOOTMGR,
-                        Utils.getRecoveryPartitionPath(),
-                        getFilesDir().toString(),
-                        ANDROID_REOCVERY_IMG
-                        ));
+                if(!new File(getFilesDir().toString(), ANDROID_REOCVERY_IMG).exists()) {
+                    os.writeBytes(String.format("%s/%s -b %s %s/%s\n",
+                            supportingFiles.toString(),
+                            ANDROID_BOOTMGR,
+                            Utils.getRecoveryPartitionPath(),
+                            getFilesDir().toString(),
+                            ANDROID_REOCVERY_IMG
+                            ));
+                }
                 // overwrite the recovery partition.
-                os.writeBytes(String.format("sh %s -b %s/%s %s\n",
+                os.writeBytes(String.format("%s/%s -b %s/%s %s\n",
+                        supportingFiles.toString(),
                         ANDROID_BOOTMGR,
                         getFilesDir().toString(),
                         UBUNTU_BOOT_IMG,
@@ -429,7 +435,7 @@ public class UbuntuInstallService extends IntentService {
                         }
                         scriptExecuted = true;
                         String seg = new String(buff,0,read);
-                        Log.i(TAG, "Script Output: " + seg);
+                        Log.d(TAG, "Script Output: " + seg);
                         broadcastProgress(-1, seg);
                     }
                     while( es.available() > 0) {
@@ -449,8 +455,8 @@ public class UbuntuInstallService extends IntentService {
                                 mLastSignalledProgress = (int) (mProgress * 100 / mTotalSize);
                                 broadcastProgress(mLastSignalledProgress, null);
                             }
-                        }                        
-                        // Log.i(TAG, "Stderr Output: " + seg);
+                        }
+                        Log.d(TAG, "Stderr Output: " + seg);
                     }                    
                     try {
                         int ret = process.exitValue();
@@ -493,8 +499,19 @@ public class UbuntuInstallService extends IntentService {
     }
 
     private Intent doUninstallUbuntu(Intent intent) {
+        File workingFolder = new File(mRootOfWorkPath, TEMP_FOLDER);
+        File updateCommand = new File(workingFolder, UPDATE_COMMAND);
         Intent result = new Intent(VERSION_UPDATE);
         boolean removeUserData = intent.getBooleanExtra(UNINSTALL_UBUNTU_EXTRA_REMOVE_USER_DATA, false);
+        try {
+            Utils.extractExecutableAsset(this, ANDROID_BOOTMGR, workingFolder.toString(), true);
+        } catch (IOException e) {
+            e.printStackTrace();
+            result.putExtra(INSTALL_RESULT_EXTRA_INT, -1);
+            result.putExtra(INSTALL_RESULT_EXTRA_STR, "Failed to extract supporting assets");
+            return result;
+        }
+
         String c = null;
         if (removeUserData) {
             c = String.format("echo \"%s %s\n %s %s\" > %s\n", 
@@ -506,23 +523,32 @@ public class UbuntuInstallService extends IntentService {
                     COMMAND_UMOUNT, PARTITION_SYSTEM,
                     UPDATE_COMMAND);                
         }
-        File workingFolder = new File(mRootOfWorkPath, TEMP_FOLDER);
-        File updateCommand = new File(workingFolder, UPDATE_COMMAND);        
+
+        // 1. force unmount
+        // 2. restore android recovery partition, and deleted it.
+        // 3. delete system.img and SWAP.img.
         int r = executeSUCommands(result, "result", new String[]{
                 c,
                 ("sh " + UPDATE_SCRIPT 
                         + " " + updateCommand.getAbsolutePath() 
                         + " " + getFilesDir().toString() + "\n"),
-                ("rm -rf /data/system.img\n"),
-                ("rm -rf /data/SWAP.img\n")
+                 String.format("%s/%s -b %s/%s %s\n",
+                         workingFolder.toString(), 
+                         ANDROID_BOOTMGR,
+                         getFilesDir().toString(),
+                         ANDROID_REOCVERY_IMG,
+                          Utils.getRecoveryPartitionPath()),
+                 (String.format("rm -f %s/%s\n", getFilesDir().toString(), ANDROID_REOCVERY_IMG)),
+                 ("rm -rf /data/system.img\n"),
+                 ("rm -rf /data/SWAP.img\n"),
         } );
         if (r == 0) {
-        // delete installed version in preferences
-        SharedPreferences pref = getSharedPreferences( SHARED_PREF, Context.MODE_PRIVATE);
-        SharedPreferences.Editor editor = pref.edit();
-        editor.putString(PREF_KEY_UPDATE_COMMAND, "");
-        VersionInfo.storeEmptyVersion(editor, PREF_KEY_INSTALLED_VERSION);
-        editor.commit();
+            // delete installed version in preferences
+            SharedPreferences pref = getSharedPreferences( SHARED_PREF, Context.MODE_PRIVATE);
+            SharedPreferences.Editor editor = pref.edit();
+            editor.putString(PREF_KEY_UPDATE_COMMAND, "");
+            VersionInfo.storeEmptyVersion(editor, PREF_KEY_INSTALLED_VERSION);
+            editor.commit();
         }
         result.putExtra("result", r);
         return result;
@@ -550,26 +576,26 @@ public class UbuntuInstallService extends IntentService {
         File rootFolder = new File(mRootOfWorkPath);
         File workingFolder = new File(rootFolder, TEMP_FOLDER);
         if (!workingFolder.exists() && !workingFolder.mkdir()) {
-        result.putExtra(resultExtraText, "Failed to create working folder");
+            result.putExtra(resultExtraText, "Failed to create working folder");
             return -1;
         }
         try {
-        Utils.extractExecutableAsset(this, UPDATE_SCRIPT, workingFolder.toString(), true);
+            Utils.extractExecutableAsset(this, UPDATE_SCRIPT, workingFolder.toString(), true);
             Utils.extractExecutableAsset(this, ANDROID_LOOP_MOUNT, workingFolder.toString(), true);
         } catch (IOException e) {
             e.printStackTrace();
             result.putExtra(resultExtraText, "Failed to extract supporting files");
             return -1;
         }
-        
+
         mWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ubuntu-installing");
         try {
             Process process = Runtime.getRuntime().exec("su", null, workingFolder);
             DataOutputStream os = new DataOutputStream(process.getOutputStream());
             os.writeBytes("echo \"SU granted\"\n");
             for (String c : commands) {
-            Log.v(TAG, "Executing:" + c);
-            os.writeBytes(c);
+                Log.v(TAG, "Executing:" + c);
+                os.writeBytes(c);
             }
             os.writeBytes(String.format("rm -rf %s\n", workingFolder.getAbsolutePath()));
             os.writeBytes("exit\n");
@@ -603,7 +629,7 @@ public class UbuntuInstallService extends IntentService {
                 try {
                     int ret = process.exitValue();
                     Log.v(TAG, "Worker thread exited with: " + ret);
-                        // if script was not executed, then user did not granted SU permissions
+                    // if script was not executed, then user did not granted SU permissions
                     if (ret == 255 || !scriptExecuted ) {
                         result.putExtra(resultExtraText, "Failed to get SU permissions");
                         return -1;
