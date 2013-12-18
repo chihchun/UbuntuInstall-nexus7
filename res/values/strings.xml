@@ -21,11 +21,11 @@
     <string name="bootstrap_check">bootstrap</string>
     <string name="latest_check">latest version</string>
     <string name="downloading_release">Downloading Ubuntu</string>
-    <string name="downloading_starting">Staring download</string>
+    <string name="downloading_starting">Starting download</string>
     <string name="installing_release">Installing Ubuntu</string>
     <string name="uninstall_dialog_title">Uninstall Ubuntu?</string>
     <string name="uninstalling_ubuntu">Uninstalling Ubuntu</string>
-    <string name="deleting_user_data">Deleteing Ubuntu user data</string>
+    <string name="deleting_user_data">Deleting Ubuntu user data</string>
     <string name="fail_fetching_versions">Fail to fetch available versions</string>
     <string name="uninstall_dialog_message">This will remove all Ubuntu system files and Ubuntu swap file</string>
     
