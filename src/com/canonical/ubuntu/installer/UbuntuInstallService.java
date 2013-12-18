@@ -44,9 +44,9 @@ public class UbuntuInstallService extends IntentService {
     // Key for string value: absolute path to update file
     public final static String PREF_KEY_UPDATE_COMMAND = "update_command";
     // Key for String set value: version information: alias, Json, version, description 
-    public final static String PREF_KEY_DOWNLOADED_VERSION = "d_version";
+    private final static String PREF_KEY_DOWNLOADED_VERSION = "d_version";
     // Key for String set value: version information: alias, Json, version, description
-    public final static String PREF_KEY_INSTALLED_VERSION = "i_version";
+    private final static String PREF_KEY_INSTALLED_VERSION = "i_version";
     // Key for boolean value: true if developer option is enabled
     public final static String PREF_KEY_DEVELOPER = "developer";
     // Key for int value: estimated number of checkpoints for installation
@@ -93,7 +93,7 @@ public class UbuntuInstallService extends IntentService {
     // Service broadcast
     // =================================================================================================
     public static final String SERVICE_STATE = "com.canonical.ubuntuinstaller.UbuntuInstallService.SERVICE_STATE";
-    public static final String SERVICE_STATE_EXTRA_STATE = "state"; // ServiceState enum
+    public static final String SERVICE_STATE_EXTRA_STATE = "state"; // InstallerState enum
     public static final String AVAILABLE_CHANNELS = "com.canonical.ubuntuinstaller.UbuntuInstallService.AVAILABLE_CHANNELS";
     public static final String AVAILABLE_CHANNELS_EXTRA_CHANNELS = "channels"; // HashMap<String,String> channel aliases and json url
     public static final String DOWNLOAD_RESULT = "com.canonical.ubuntuinstaller.UbuntuInstallService.DOWNLOAD_RESULT";
@@ -128,10 +128,13 @@ public class UbuntuInstallService extends IntentService {
     /**
      * State of the service 
      */
-    public enum ServiceState {
-        READY, FETCHING_CHANNELS, DOWNLOADING, INSTALLING, UNINSTALLING_UBUNTU, DELETING_USER_DATA 
+    public enum InstallerState {
+        READY, FETCHING_CHANNELS, DOWNLOADING, INSTALLING, UNINSTALLING, DELETING_USER_DATA;
+        public static InstallerState fromOrdian(int ordianl) {
+            return InstallerState.values()[ordianl];
+         }
     }
-    
+
     // =================================================================================================
     // Packed assets
     // =================================================================================================
@@ -175,7 +178,7 @@ public class UbuntuInstallService extends IntentService {
     private long mProgress; // so far handled amount downloaded/processed 
     private int mLastSignalledProgress;
     private long mTotalSize; // calculated
-    private ServiceState mServiceState;
+    private InstallerState mServiceState;
     
     public class Channel {
         String alias;
@@ -224,13 +227,13 @@ public class UbuntuInstallService extends IntentService {
             mRootOfWorkPath = getFilesDir().toString(); //  "/data/data/com.canonical.ubuntuinstaller/files";
             workPathInCache = false;
         }
-        mServiceState = ServiceState.READY;
+        mServiceState = InstallerState.READY;
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         // if service is not in ready state, handle specific requests here
-        if (mServiceState != ServiceState.READY) {
+        if (mServiceState != InstallerState.READY) {
             String action = intent.getAction(); 
             if (action.equals(CANCEL_DOWNLOAD)) {
                 // set the cancel flag, but let it remove downloaded files on worker thread
@@ -248,44 +251,36 @@ public class UbuntuInstallService extends IntentService {
     protected void onHandleIntent(Intent intent) {
         String action = intent.getAction();
         Intent result = null;
+
+        Log.d(TAG, this.toString() + " onHandleIntent: " + action);
         if (action.equals(GET_CHANNEL_LIST)) {
-            mServiceState = ServiceState.FETCHING_CHANNELS;
-            Log.d(TAG, this.toString() + ": GET_CHANNEL_LIST");
+            mServiceState = InstallerState.FETCHING_CHANNELS;
             result = doGetChannelList(intent);
         } else if (action.equals(DOWNLOAD_RELEASE)) {
-            Log.d(TAG, this.toString() + ": DOWNLOAD_RELEASE");
-            mServiceState = ServiceState.DOWNLOADING;
+            mServiceState = InstallerState.DOWNLOADING;
             result = doDownloadRelease(intent);
         } else if (action.equals(CANCEL_DOWNLOAD)) {
-            Log.d(TAG, this.toString() + ": CANCEL_DOWNLOAD");
             // download should be already cancelled, now delete all the files
             result = doRemoreDownload(intent);
         } else if (action.equals(PAUSE_DOWNLOAD)) {
-            Log.d(TAG, this.toString() + ": PAUSE_DOWNLOAD");
             // TODO: handle download
         } else if (action.equals(RESUME_DOWNLOAD)) {
-            Log.d(TAG, this.toString() + ": RESUME_DOWNLOAD");
-            mServiceState = ServiceState.DOWNLOADING;
+            mServiceState = InstallerState.DOWNLOADING;
             // TODO: handle download
         } else if (action.equals(CLEAN_DOWNLOAD)) {
-            Log.d(TAG, this.toString() + ": CLEAN_DOWNLOAD");
             result = doRemoreDownload(intent);
         } else if (action.equals(INSTALL_UBUNTU)) {
-            Log.d(TAG, this.toString() + ": INSTALL_UBUNTU");
-            mServiceState = ServiceState.INSTALLING;
+            mServiceState = InstallerState.INSTALLING;
             result = doInstallUbuntu(intent);
         } else if (action.equals(CANCEL_INSTALL)) {
-            Log.d(TAG, this.toString() + ": CANCEL_INSTALL");
             // install should be already cancelled, try to delete it now
-            mServiceState = ServiceState.UNINSTALLING_UBUNTU;
+            mServiceState = InstallerState.UNINSTALLING;
             result = doUninstallUbuntu(intent);
         } else if (action.equals(UNINSTALL_UBUNTU)) {
-            Log.d(TAG, this.toString() + ": UNINSTALL_UBUNTU");
-            mServiceState = ServiceState.UNINSTALLING_UBUNTU;
+            mServiceState = InstallerState.UNINSTALLING;
             result = doUninstallUbuntu(intent);
         } else if (action.equals(DELETE_UBUNTU_USER_DATA)) {  
-            Log.d(TAG, this.toString() + ": DELETE_UBUNTU_USER_DATA");
-            mServiceState = ServiceState.DELETING_USER_DATA;
+            mServiceState = InstallerState.DELETING_USER_DATA;
             result = doDeleteUbuntuUserData(intent);
         } else {
             // for any other request broadcast service state
@@ -295,7 +290,8 @@ public class UbuntuInstallService extends IntentService {
         if (result != null) {
             sendBroadcast(result);
         }
-        mServiceState = ServiceState.READY;
+        mServiceState = InstallerState.READY;
+        Log.d(TAG, this.toString() + " onHandleIntent: " + action + " END");
     }
     
     private Intent doGetChannelList(Intent intent) {
@@ -920,7 +916,7 @@ public class UbuntuInstallService extends IntentService {
                 Log.w(TAG, "failed to remove old download");
                 return "failed to remove old download";
             }
-            SharedPreferences pref = getSharedPreferences( SHARED_PREF, Context.MODE_PRIVATE);
+            SharedPreferences pref = getSharedPreferences(SHARED_PREF, Context.MODE_PRIVATE);
             SharedPreferences.Editor editor = pref.edit();
             editor.putString(PREF_KEY_UPDATE_COMMAND, "");
             VersionInfo.storeEmptyVersion(editor, PREF_KEY_DOWNLOADED_VERSION);
@@ -970,4 +966,49 @@ public class UbuntuInstallService extends IntentService {
         return true;
     }
 
+    private static VersionInfo getVersionWithPrefKey(Context c, String prefKey) {
+        SharedPreferences pref = c.getSharedPreferences(SHARED_PREF, Context.MODE_PRIVATE);
+
+        if (VersionInfo.hasValidVersion(pref, prefKey)) {
+            return new VersionInfo(pref, prefKey);
+        }
+        return null;
+    }
+    
+    public static VersionInfo getDownloadedVersion(Context c) {
+        return getVersionWithPrefKey(c, PREF_KEY_DOWNLOADED_VERSION);
+    }
+
+    public static VersionInfo getInstalledVersion(Context c) {
+        return getVersionWithPrefKey(c, PREF_KEY_INSTALLED_VERSION);
+    }
+    public static boolean isUbuntuInstalled(Context c) {
+        SharedPreferences pref = c.getSharedPreferences(SHARED_PREF, Context.MODE_PRIVATE);
+        if (VersionInfo.hasValidVersion(pref, PREF_KEY_INSTALLED_VERSION)) {
+            // go to launch screen
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * Check if there is downloaded release ready to install
+     * @param context
+     * @return true if there is downloaded release ready to install
+     */
+    public static boolean checkifReadyToInstall(Context context) {
+        SharedPreferences pref = context.getSharedPreferences(SHARED_PREF, Context.MODE_PRIVATE);
+        String command = pref.getString(PREF_KEY_UPDATE_COMMAND, "");
+        boolean ready = false;
+        if (!command.equals("")){
+            File f = new File(command);
+            if (f.exists()) {
+                return true;
+            } else {
+                pref.edit().putString(PREF_KEY_UPDATE_COMMAND, "").commit();
+                return false;
+            }
+        }
+        return false;
+    }
 }

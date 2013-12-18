@@ -12,7 +12,6 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.PowerManager;
 import android.view.Menu;
@@ -149,7 +148,6 @@ public class LaunchActivity extends Activity {
     }
 
     private void fillInstalledVersionInfo() {
-        SharedPreferences pref = getSharedPreferences( UbuntuInstallService.SHARED_PREF, Context.MODE_PRIVATE);        
         mTextChannel.setText(mUbuntuVersion.getChannelAlias());
         mTextVersion.setText(Integer.toString(mUbuntuVersion.getVersion()));
         mTextDescription.setText(mUbuntuVersion.getDescription());
@@ -159,12 +157,12 @@ public class LaunchActivity extends Activity {
     }
     
     private void ensureUbuntuIsInstalled() {
-        SharedPreferences pref = getSharedPreferences( UbuntuInstallService.SHARED_PREF, Context.MODE_PRIVATE);
-        if (!VersionInfo.hasValidVersion(pref, UbuntuInstallService.PREF_KEY_INSTALLED_VERSION)) {
+        VersionInfo v = UbuntuInstallService.getInstalledVersion(this.getApplicationContext());
+        if (v == null) {
             // go back to install screen
-        InstallActivity.startFrom(this);
+            InstallActivity.startFrom(this);
         } else {
-        mUbuntuVersion = new VersionInfo(pref, UbuntuInstallService.PREF_KEY_INSTALLED_VERSION);
+            mUbuntuVersion = v;
         }
     }
     
