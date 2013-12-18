@@ -59,11 +59,12 @@ public class UbuntuInstallService extends IntentService {
     public final static boolean DEFAULT_INSTALL_BOOTSTRAP = false;
     public final static String DEFAULT_CHANNEL_ALIAS = "trusty";
     public final static String UBUNTU_BOOT_IMG = "ubuntu-boot.img";
+    public final static String ANDROID_REOCVERY_IMG = "android-recovery.img";
     public final static String MAKO_PARTITION_BOOT = "/dev/block/platform/msm_sdcc.1/by-name/boot";
     public final static String MAKO_PARTITION_RECOVERY = "/dev/block/platform/msm_sdcc.1/by-name/recovery";
     public final static String MAGURO_PARTITION_BOOT = "/dev/block/platform/omap/omap_hsmmc.0/by-name/boot";
     public final static String MAGURO_PARTITION_RECOVERY = "/dev/block/platform/omap/omap_hsmmc.0/by-name/recovery";
-    
+
     // =================================================================================================
     // Service Actions
     // =================================================================================================
@@ -72,7 +73,7 @@ public class UbuntuInstallService extends IntentService {
     // Download latest release from given channel
     public static final String DOWNLOAD_RELEASE = "com.canonical.ubuntuinstaller.UbuntuInstallService.DOWNLOAD_RELEASE";
     public static final String DOWNLOAD_RELEASE_EXTRA_CHANNEL_ALIAS = "alias"; // string
-    public static final String DOWNLOAD_RELEASE_EXTRA_CHANNEL_URL = "url";     // string
+    public static final String DOWNLOAD_RELEASE_EXTRA_CHANNEL_URL = "url"; // string
     public static final String DOWNLOAD_RELEASE_EXTRA_BOOTSTRAP = "bootstrap"; // boolean
     public static final String DOWNLOAD_RELEASE_EXTRA_VERSION = "version"; // int
     public static final String DOWNLOAD_RELEASE_EXTRA_TYPE = "type"; // JsonChannelParser.ReleaseType
@@ -142,6 +143,7 @@ public class UbuntuInstallService extends IntentService {
     private static final String GPG = "gpg";
     private static final String TAR = "tar";
     private static final String ANDROID_LOOP_MOUNT = "aloopmount";
+    private static final String ANDROID_BOOTMGR = "bootmgr";
     private static final String UPDATE_SCRIPT = "system-image-upgrader";
     private static final String ARCHIVE_MASTER = "archive-master.tar.xz";
     private static final String ARCHIVE_MASTER_ASC = "archive-master.tar.xz.asc";
@@ -370,6 +372,7 @@ public class UbuntuInstallService extends IntentService {
             broadcastProgress(0, "Extracting supporting files");
             try {
                 Utils.extractExecutableAsset(this, BUSYBOX, supportingFiles.toString(), true);
+                Utils.extractExecutableAsset(this, ANDROID_BOOTMGR, supportingFiles.toString(), true);
                 Utils.extractExecutableAsset(this, GPG, supportingFiles.toString(), true);
                 Utils.extractExecutableAsset(this, TAR, supportingFiles.toString(), true);
                 Utils.extractExecutableAsset(this, UPDATE_SCRIPT, supportingFiles.toString(), true);
@@ -389,15 +392,26 @@ public class UbuntuInstallService extends IntentService {
             try {
                 Process process = Runtime.getRuntime().exec("su", null, supportingFiles);
                 DataOutputStream os = new DataOutputStream(process.getOutputStream());
+                // run system-image-upgrader.
                 os.writeBytes(String.format("sh %s %s %s\n",
-                                    UPDATE_SCRIPT,
-                                    updateCommand,
-                                    getFilesDir().toString()
-                                    ));
-                os.writeBytes(String.format("cat %s/%s > %s\n", 
-                                    getFilesDir().toString(), 
-                                    UBUNTU_BOOT_IMG, 
-                                    Utils.getRecoveryPartitionPath()));
+                        UPDATE_SCRIPT,
+                        updateCommand,
+                        getFilesDir().toString()
+                        ));
+                // backup original recovery.
+                os.writeBytes(String.format("sh %s -b %s %s/%s\n",
+                        ANDROID_BOOTMGR,
+                        Utils.getRecoveryPartitionPath(),
+                        getFilesDir().toString(),
+                        ANDROID_REOCVERY_IMG
+                        ));
+                // overwrite the recovery partition.
+                os.writeBytes(String.format("sh %s -b %s/%s %s\n",
+                        ANDROID_BOOTMGR,
+                        getFilesDir().toString(),
+                        UBUNTU_BOOT_IMG,
+                        Utils.getRecoveryPartitionPath()
+                        ));
                 // close terminal
                 os.writeBytes("exit\n");
                 os.flush();
@@ -457,7 +471,7 @@ public class UbuntuInstallService extends IntentService {
                         try { Thread.sleep(200); } catch(Exception ex) {}
                     }
                 } while (running);
-            }catch (IOException e) {
+            } catch (IOException e) {
                 e.printStackTrace();
                 Log.w(TAG, "Update failed");
                 result.putExtra(INSTALL_RESULT_EXTRA_INT, -1);
@@ -783,30 +797,32 @@ public class UbuntuInstallService extends IntentService {
                     // load keyrings
                     int i = 0;
                     while (i < keyringsFilenames.length) {
-                        fos.write((String.format("%s %s %s\n", 
-                                COMMAND_LOAD_KEYRING, 
-                                keyringsFilenames[i++], 
+                        fos.write((String.format("%s %s %s\n",
+                                COMMAND_LOAD_KEYRING,
+                                keyringsFilenames[i++],
                                 keyringsFilenames[i++])).getBytes());
                     }
                     fos.write((String.format("%s %s\n", COMMAND_MOUNT, PARTITION_SYSTEM)).getBytes());
 
                     // add update commands
                     i = 0;
-                    while (i < updateFilenames.length ) {
-                        fos.write((String.format("%s %s %s\n", 
-                                COMMAND_UPDATE, 
-                                updateFilenames[i++], 
+                    while (i < updateFilenames.length) {
+                        fos.write((String.format("%s %s %s\n",
+                                COMMAND_UPDATE,
+                                updateFilenames[i++],
                                 updateFilenames[i++])).getBytes());
                     }
-                    
+
                     // add Ubuntu reboot app update package
                     if (releaseType == ReleaseType.FULL) {
-                        fos.write((String.format("%s %s %s\n", 
-                                COMMAND_UPDATE, 
-                                U_REBOOT_APP, 
+                        fos.write((String.format("%s %s %s\n",
+                                COMMAND_UPDATE,
+                                U_REBOOT_APP,
                                 U_REBOOT_APP_ASC)).getBytes());
                     }
-
+                    if(releaseType == ReleaseType.DELTA) {
+                        // TODO:
+                    }
                     fos.write((String.format("%s %s\n", COMMAND_UMOUNT, PARTITION_SYSTEM)).getBytes());
                     fos.flush();
                 } finally {

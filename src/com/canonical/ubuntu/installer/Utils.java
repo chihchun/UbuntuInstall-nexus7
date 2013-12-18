@@ -202,6 +202,7 @@ public class Utils {
         } else if ("maguro".equals(deviceModel)) {
             return UbuntuInstallService.MAGURO_PARTITION_BOOT;
         }
+        // FIXME: should throw a exception.
         return "";
     }
 
@@ -212,6 +213,7 @@ public class Utils {
         } else if ("maguro".equals(deviceModel)) {
             return UbuntuInstallService.MAGURO_PARTITION_RECOVERY;
         }
+        // FIXME: should throw a exception.
         return "";
     }
 

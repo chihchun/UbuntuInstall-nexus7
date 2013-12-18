@@ -178,10 +178,13 @@ public class LaunchActivity extends Activity {
                 try {
                     Process process = Runtime.getRuntime().exec("su", null, getFilesDir());
                     DataOutputStream os = new DataOutputStream(process.getOutputStream());
-                    os.writeBytes(String.format("cat %s/%s > %s\n", 
-                                                getFilesDir().toString(), 
-                                                UbuntuInstallService.UBUNTU_BOOT_IMG,
-                                                Utils.getRecoveryPartitionPath()));
+                    // overwrite the recovery partition.
+                    // FIXME, this should be move to UbuntuInstallService.
+                    os.writeBytes(String.format("sh bootmgr -b %s/%s %s\n",
+                            getFilesDir().toString(),
+                            UbuntuInstallService.UBUNTU_BOOT_IMG,
+                            Utils.getRecoveryPartitionPath()
+                            ));
                     os.writeBytes("reboot recovery\n");
                     os.flush();
                     try {
