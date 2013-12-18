@@ -3,6 +3,7 @@ package com.canonical.ubuntu.installer;
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -11,6 +12,7 @@ import java.io.OutputStream;
 import java.io.Reader;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.security.MessageDigest;
 import java.util.List;
 import java.util.Locale;
 
@@ -214,7 +216,7 @@ public class Utils {
         return freeSpaceInBytes;
     }
     
-    static String getBootPartitionPath() {
+    public static String getBootPartitionPath() {
         String deviceModel = Build.DEVICE.toLowerCase(Locale.US);
         if ("mako".equals(deviceModel)) {
             return UbuntuInstallService.MAKO_PARTITION_BOOT;
@@ -224,7 +226,7 @@ public class Utils {
         return "";
     }
     
-    static String getRecoveryPartitionPath() {
+    public static String getRecoveryPartitionPath() {
         String deviceModel = Build.DEVICE.toLowerCase(Locale.US);
         if ("mako".equals(deviceModel)) {
             return UbuntuInstallService.MAKO_PARTITION_RECOVERY;
@@ -234,4 +236,38 @@ public class Utils {
         return "";
     }
 
+    public static String getSha256Sum(File f) {
+        MessageDigest md;
+        FileInputStream fis = null;
+        String sum = "";
+        try {
+            fis = new FileInputStream(f);
+            md = MessageDigest.getInstance("SHA-256");
+
+            byte[] dataBytes = new byte[1024];
+
+            int nread = 0; 
+            while ((nread = fis.read(dataBytes)) != -1) {
+                md.update(dataBytes, 0, nread);
+            };
+            byte[] mdbytes = md.digest();
+
+            StringBuffer sb = new StringBuffer();
+            for (int i = 0; i < mdbytes.length; i++) {
+                sb.append(Integer.toString((mdbytes[i] & 0xff) + 0x100, 16).substring(1));
+            }
+
+            sum = sb.toString();
+        } catch (Exception e) {
+            Log.e(TAG, "error as doing checksum", e);
+        } finally {
+            try {
+                fis.close();
+            } catch (Exception e) {
+                // e.printStackTrace();
+            }
+        }
+
+        return sum;
+    }
 }
