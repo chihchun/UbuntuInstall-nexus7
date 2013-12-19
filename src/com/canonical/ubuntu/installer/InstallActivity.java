@@ -194,8 +194,9 @@ public class InstallActivity extends Activity {
             @Override
             public void run() {
                 // keep old text in there 
-                mTerminal.setText(mTerminal.getText().toString() 
-                        + "\n" + text);
+                mTerminal.setText(mTerminal.getText().toString() + "\n" + text);
+                final int scrollAmount = mTerminal.getLayout().getLineTop(mTerminal.getLineCount()) - mTerminal.getHeight();
+                mTerminal.scrollTo(0, scrollAmount);
             }
         });
     }
