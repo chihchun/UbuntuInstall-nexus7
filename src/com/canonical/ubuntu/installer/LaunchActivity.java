@@ -155,8 +155,9 @@ public class LaunchActivity extends Activity {
     private void ensureUbuntuIsInstalled() {
         VersionInfo v = UbuntuInstallService.getInstalledVersion(this.getApplicationContext());
         if (v == null) {
-            // go back to install screen
+            // go back to install screen, and release myself.
             InstallActivity.startFrom(this);
+            finish();
         } else {
             mUbuntuVersion = v;
         }
