@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <string name="app_name">UbuntuInstaller</string>
+    <string name="app_name">Ubuntu Dual Boot</string>
     <string name="action_settings">Settings</string>
     <string name="action_detele_download">Delete download</string>
     <string name="action_install">Install</string>

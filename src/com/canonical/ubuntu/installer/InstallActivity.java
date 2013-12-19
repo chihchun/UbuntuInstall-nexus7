@@ -132,8 +132,9 @@ public class InstallActivity extends Activity {
     private void checkIfUbuntuIsInstalled() {
         // check is there is Ubuntu installed
         if (UbuntuInstallService.isUbuntuInstalled(this.getApplicationContext())) {
-            // go to launch screen
+            // go to launch screen, and kill this activity.
             LaunchActivity.startFrom(this);
+            finish();
         }
     }
 
@@ -365,7 +366,9 @@ public class InstallActivity extends Activity {
                     Utils.showToast(context, "Install completed");
                     mProgressBar.setProgress(100);
                     deleteDownload();
+                    // go to launch screen, and kill this activity.
                     LaunchActivity.startFrom(context);
+                    finish();
                 } else {
                     Utils.showToast(context, "Installation failed:");
                     String reason = intent.getStringExtra(UbuntuInstallService.INSTALL_RESULT_EXTRA_STR);
