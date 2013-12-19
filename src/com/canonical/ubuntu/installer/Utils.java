@@ -197,10 +197,18 @@ public class Utils {
     
     public static String getBootPartitionPath() {
         String deviceModel = Build.DEVICE.toLowerCase(Locale.US);
-        if ("mako".equals(deviceModel)) {
-            return UbuntuInstallService.MAKO_PARTITION_BOOT;
+        if ("flo".equals(deviceModel)) {
+            return UbuntuInstallService.FLO_PARTITION_BOOT;
+        } else if ("grouper".equals(deviceModel)) {
+            return UbuntuInstallService.GROUPER_PARTITION_BOOT;
+        } else if ("hammerhead".equals(deviceModel)) {
+            return UbuntuInstallService.HAMMERHEAD_PARTITION_BOOT;
         } else if ("maguro".equals(deviceModel)) {
             return UbuntuInstallService.MAGURO_PARTITION_BOOT;
+        } else if ("mako".equals(deviceModel)) {
+            return UbuntuInstallService.MAKO_PARTITION_BOOT;
+        } else if ("manta".equals(deviceModel)) {
+            return UbuntuInstallService.MANTA_PARTITION_BOOT;
         }
         // FIXME: should throw a exception.
         return "";
@@ -208,10 +216,18 @@ public class Utils {
 
     public static String getRecoveryPartitionPath() {
         String deviceModel = Build.DEVICE.toLowerCase(Locale.US);
-        if ("mako".equals(deviceModel)) {
-            return UbuntuInstallService.MAKO_PARTITION_RECOVERY;
+        if ("flo".equals(deviceModel)) {
+            return UbuntuInstallService.FLO_PARTITION_RECOVERY;
+        } else if ("grouper".equals(deviceModel)) {
+            return UbuntuInstallService.GROUPER_PARTITION_RECOVERY;
+        } else if ("hammerhead".equals(deviceModel)) {
+            return UbuntuInstallService.HAMMERHEAD_PARTITION_RECOVERY;
         } else if ("maguro".equals(deviceModel)) {
             return UbuntuInstallService.MAGURO_PARTITION_RECOVERY;
+        } else if ("mako".equals(deviceModel)) {
+            return UbuntuInstallService.MAKO_PARTITION_RECOVERY;
+        } else if ("manta".equals(deviceModel)) {
+            return UbuntuInstallService.MANTA_PARTITION_RECOVERY;
         }
         // FIXME: should throw a exception.
         return "";

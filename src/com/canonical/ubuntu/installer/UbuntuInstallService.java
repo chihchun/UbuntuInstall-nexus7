@@ -58,11 +58,19 @@ public class UbuntuInstallService extends IntentService {
     public final static String DEFAULT_CHANNEL_ALIAS = "trusty";
     public final static String UBUNTU_BOOT_IMG = "ubuntu-boot.img";
     public final static String ANDROID_REOCVERY_IMG = "android-recovery.img";
-    public final static String MAKO_PARTITION_BOOT = "/dev/block/platform/msm_sdcc.1/by-name/boot";
-    public final static String MAKO_PARTITION_RECOVERY = "/dev/block/platform/msm_sdcc.1/by-name/recovery";
+    public final static String FLO_PARTITION_BOOT = "/dev/block/platform/msm_sdcc.1/by-name/boot";
+    public final static String FLO_PARTITION_RECOVERY = "/dev/block/platform/msm_sdcc.1/by-name/recovery";
+    public final static String GROUPER_PARTITION_BOOT = "/dev/block/platform/sdhci-tegra.3/by-name/LNX";
+    public final static String GROUPER_PARTITION_RECOVERY = "/dev/block/platform/sdhci-tegra.3/by-name/SOS";
+    public final static String HAMMERHEAD_PARTITION_BOOT = "/dev/block/platform/msm_sdcc.1/by-name/boot";
+    public final static String HAMMERHEAD_PARTITION_RECOVERY = "/dev/block/platform/msm_sdcc.1/by-name/recovery";
     public final static String MAGURO_PARTITION_BOOT = "/dev/block/platform/omap/omap_hsmmc.0/by-name/boot";
     public final static String MAGURO_PARTITION_RECOVERY = "/dev/block/platform/omap/omap_hsmmc.0/by-name/recovery";
-
+    public final static String MAKO_PARTITION_BOOT = "/dev/block/platform/msm_sdcc.1/by-name/boot";
+    public final static String MAKO_PARTITION_RECOVERY = "/dev/block/platform/msm_sdcc.1/by-name/recovery";
+    public final static String MANTA_PARTITION_BOOT = "/dev/block/platform/dw_mmc.0/by-name/boot";
+    public final static String MANTA_PARTITION_RECOVERY = "/dev/block/platform/dw_mmc.0/by-name/recovery";
+    
     // =================================================================================================
     // Service Actions
     // =================================================================================================
