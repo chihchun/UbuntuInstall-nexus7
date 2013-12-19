@@ -1,10 +1,5 @@
 package com.canonical.ubuntu.installer;
 
-import java.io.DataOutputStream;
-import java.io.IOException;
-
-import com.canonical.ubuntu.widget.UbuntuButton;
-
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
@@ -13,12 +8,13 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
-import android.os.PowerManager;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.TextView;
+
+import com.canonical.ubuntu.widget.UbuntuButton;
 
 
 public class LaunchActivity extends Activity {
@@ -85,35 +81,35 @@ public class LaunchActivity extends Activity {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
-        case R.id.action_uninstall:
-            // show dialog
-        final Intent uninstall = new Intent(UbuntuInstallService.UNINSTALL_UBUNTU);
-        createConfirmationDialog(R.string.uninstall_dialog_title, 
-                         R.string.action_uninstall_button,
-                         R.string.cancel,
-                         uninstall,
-                         R.string.uninstalling_ubuntu,
-                         R.array.uninstall_options,
-                         new boolean[]{UbuntuInstallService.DEFAULT_UNINSTALL_DEL_USER_DATA},
-                         new DialogInterface.OnMultiChoiceClickListener() {
-                @Override
-                public void onClick(DialogInterface dialog, int which, boolean isChecked) {
-                // we have only one option here
-                uninstall.putExtra(UbuntuInstallService.UNINSTALL_UBUNTU_EXTRA_REMOVE_USER_DATA, isChecked);
-                }
-            }).show();
-            break;
-        case R.id.action_del_user_data:
-        Intent action = new Intent(UbuntuInstallService.DELETE_UBUNTU_USER_DATA);
-        createConfirmationDialog(R.string.action_delete_user_data, 
-                         R.string.action_delete_udata_button,
-                         R.string.cancel,
-                         action,
-                         R.string.deleting_user_data,
-                         -1,
-                         null,
-                         null).show();        
-        break;
+            case R.id.action_uninstall:
+                // show dialog
+                final Intent uninstall = new Intent(UbuntuInstallService.UNINSTALL_UBUNTU);
+                createConfirmationDialog(R.string.uninstall_dialog_title, 
+                        R.string.action_uninstall_button,
+                        R.string.cancel,
+                        uninstall,
+                        R.string.uninstalling_ubuntu,
+                        R.array.uninstall_options,
+                        new boolean[]{UbuntuInstallService.DEFAULT_UNINSTALL_DEL_USER_DATA},
+                        new DialogInterface.OnMultiChoiceClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which, boolean isChecked) {
+                        // we have only one option here
+                        uninstall.putExtra(UbuntuInstallService.UNINSTALL_UBUNTU_EXTRA_REMOVE_USER_DATA, isChecked);
+                    }
+                }).show();
+                break;
+            case R.id.action_del_user_data:
+                Intent action = new Intent(UbuntuInstallService.DELETE_UBUNTU_USER_DATA);
+                createConfirmationDialog(R.string.action_delete_user_data, 
+                        R.string.action_delete_udata_button,
+                        R.string.cancel,
+                        action,
+                        R.string.deleting_user_data,
+                        -1,
+                        null,
+                        null).show();        
+                break;
         }
         return super.onOptionsItemSelected(item);
     }
@@ -169,38 +165,10 @@ public class LaunchActivity extends Activity {
     OnClickListener mRebootButtonListener = new OnClickListener() {
         @Override
         public void onClick(View v) {
-            // Reboot to recovery to complete update, try power manager if we have permissions
-            try {
-                PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
-                powerManager.reboot("recovery");
-            } catch (Exception e) {
-                // try it with SU permissions
-                try {
-                    Process process = Runtime.getRuntime().exec("su", null, getFilesDir());
-                    DataOutputStream os = new DataOutputStream(process.getOutputStream());
-                    os.writeBytes(String.format("cat %s/%s > %s\n", 
-                                                getFilesDir().toString(), 
-                                                UbuntuInstallService.UBUNTU_BOOT_IMG,
-                                                Utils.getRecoveryPartitionPath()));
-                    os.writeBytes("reboot recovery\n");
-                    os.flush();
-                    try {
-                        process.waitFor();
-                             if (process.exitValue() != 255) { 
-                                 Utils.showToast(v.getContext(), "Rebooting to Ubuntu");
-                             }
-                             else {
-                                 Utils.showToast(v.getContext(), "No permissions to reboot to recovery");      
-                             }   
-                     } catch (InterruptedException ee) {
-                         Utils.showToast(v.getContext(), "No permissions to reboot to recovery");
-                     }
-                  } catch (IOException eee) {
-                      Utils.showToast(v.getContext(), "No permissions to reboot to recovery");   
-                  }
-            }
+            startService(new Intent(UbuntuInstallService.REBOOT_UBUNTU));
         }
     };
+
     BroadcastReceiver mServiceObserver = new BroadcastReceiver() {
         @SuppressWarnings("unchecked")
         @Override
