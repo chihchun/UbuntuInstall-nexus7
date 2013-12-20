@@ -402,11 +402,11 @@ public class InstallActivity extends Activity {
                     Utils.showToast(context, "Download completed, ready to install Ubuntu");
                     startInstallationIfPossible();
                 } else {
+                    String reason = intent.getStringExtra(UbuntuInstallService.INSTALL_RESULT_EXTRA_STR);
                     // make sure it was not cancelled by user
                     if (r != -2) {
-                        Utils.showToast(context, "Downlload failed:");    
+                        reason = "Download failed: " + reason;
                     }
-                    String reason = intent.getStringExtra(UbuntuInstallService.INSTALL_RESULT_EXTRA_STR);
                     Utils.showToast(context, reason);
                     updateInfoOnUiThread(reason);
                     // delete failed download
