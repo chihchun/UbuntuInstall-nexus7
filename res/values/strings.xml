@@ -11,11 +11,12 @@
     <string name="action_delete_udata_button">Delete</string>
     <string name="cancel">Cancel</string>
     <string name="welcome_world">Your life is about to change, welcome in Ubuntu installer</string>
-    <string name="install_button_label_install">Install Ubuntu</string>
+    <string name="install_button_label_install">Choose channel to install</string>
     <string name="install_button_label_fetching"><![CDATA[Install Ubuntu<br/><small>fetching channel list</small>]]></string>
     <string name="install_button_label_no_channel"><![CDATA[Install Ubuntu<br/><small>no available channels</small>]]></string>
     <string name="install_button_label_resume">Resume install</string>
-    <string name="install_button_label_cancel">Cancel install</string>
+    <string name="install_button_label_cancel_download">Cancel download</string>
+    <string name="install_button_label_cancel_install">Cancel install</string>
     <string name="channel_picker_dialog_title">Select channel to install</string>
     <string name="version_picker_dialog_title">Select version to install</string>
     <string name="bootstrap_check">bootstrap</string>
