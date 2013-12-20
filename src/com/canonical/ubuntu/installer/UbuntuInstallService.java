@@ -924,8 +924,8 @@ public class UbuntuInstallService extends IntentService {
     }
     
     private Intent handleDownloadError(Intent i, int res, String reason) {
-        i.putExtra(DOWNLOAD_RESULT_EXTRA_INT, -1);
-        i.putExtra(DOWNLOAD_RESULT_EXTRA_STR, "Failed to generate update command");
+        i.putExtra(DOWNLOAD_RESULT_EXTRA_INT, res);
+        i.putExtra(DOWNLOAD_RESULT_EXTRA_STR, reason);
         deleteRelease();
         return i;
     }
