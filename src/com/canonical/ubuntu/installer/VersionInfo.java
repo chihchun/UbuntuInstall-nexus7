@@ -13,6 +13,10 @@ public class VersionInfo {
     private static final String JSON = "_json";
     private static final String DESCRIPTION = "_description";
     private static final String VERSION = "_version";
+    // partial download: long
+    //     full-download: d_version is not empty and this value is 0
+    //     partial download: d_version is not empty and this value is > 0
+    private static final String DOWNLOADED_SIZE = "_downloaded-size";
     private static final String TYPE = "type";
     
     public enum ReleaseType {
@@ -44,6 +48,7 @@ public class VersionInfo {
     public final String mChannelJson;
     public final String mDescription;
     public final int mVersion;
+    public final long mDownloadedSize;
     public final ReleaseType mReleaseType;
     
     // empty constructor
@@ -52,27 +57,35 @@ public class VersionInfo {
         mChannelJson = "";
         mDescription = "";
         mVersion = -1;
+        mDownloadedSize = 0;
         mReleaseType = ReleaseType.UNKNOWN;
     }
             
     public VersionInfo(String channelAlias,
                 String channleJson,
                 String description,
-                int version, 
+                int version,
+                long downloadedSize,
                 ReleaseType type) {
         mChannelAlias = channelAlias;
         mChannelJson = channleJson;
         mDescription = description;
         mVersion = version;
+        mDownloadedSize = downloadedSize;
         mReleaseType = type;
     }
     
-    public VersionInfo( SharedPreferences sp, String set ) {
+    public VersionInfo(SharedPreferences sp, String set ) {
         mChannelAlias = sp.getString( set + ALIAS, "");
         mChannelJson = sp.getString( set + JSON, "");
         mDescription = sp.getString( set + DESCRIPTION, "");
         mVersion = sp.getInt( set + VERSION, -1);
+        mDownloadedSize =  sp.getLong( set + DOWNLOADED_SIZE, -1);
         mReleaseType = ReleaseType.fromValue(sp.getInt(TYPE, ReleaseType.FULL.getValue())); // default is FULL
+    }
+    
+    public boolean equals(String channelJson, int version, ReleaseType releaseType) {
+        return true;
     }
     
     public void storeVersion(SharedPreferences.Editor e, String set) {
@@ -80,7 +93,8 @@ public class VersionInfo {
             .putString(set + JSON, mChannelJson)
             .putString(set + DESCRIPTION, mDescription)
             .putInt(set + VERSION, mVersion)
-            .putInt(set + TYPE, mReleaseType.ordinal())
+            .putLong(set + DOWNLOADED_SIZE, mDownloadedSize)
+            .putInt(set + TYPE, mReleaseType.getValue())
             .commit();
     }
 
@@ -89,6 +103,7 @@ public class VersionInfo {
             .putString(set + JSON, "")
             .putString(set + DESCRIPTION, "")
             .putInt(set + VERSION, -1)
+            .putInt(set + DOWNLOADED_SIZE, 0)
             .putInt(set + TYPE, ReleaseType.UNKNOWN.ordinal())
             .commit();
     }
@@ -114,6 +129,10 @@ public class VersionInfo {
     
     public int getVersion() {
         return mVersion;
+    }
+
+    public long getDownloadedSize() {
+        return mDownloadedSize;
     }
     
     public boolean isFullUpdate() {

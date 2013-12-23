@@ -32,7 +32,7 @@ import java.util.Locale;
 public class Utils {
 
     private final static String TAG = "Utils";
-    private final static int SIGNATURE_SIZE = 490;
+    public final static int SIGNATURE_SIZE = 490;
 
 
     public static void showToast(Context context, String message) {
