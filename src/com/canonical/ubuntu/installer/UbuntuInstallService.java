@@ -516,37 +516,28 @@ public class UbuntuInstallService extends IntentService {
         File updateCommand = new File(workingFolder, UPDATE_COMMAND);
         Intent result = new Intent(VERSION_UPDATE);
         boolean removeUserData = intent.getBooleanExtra(UNINSTALL_UBUNTU_EXTRA_REMOVE_USER_DATA, false);
-        try {
-            Utils.extractExecutableAsset(this, ANDROID_BOOTMGR, workingFolder.toString(), true);
-        } catch (IOException e) {
-            e.printStackTrace();
-            result.putExtra(INSTALL_RESULT_EXTRA_INT, -1);
-            result.putExtra(INSTALL_RESULT_EXTRA_STR, "Failed to extract supporting assets");
-            return result;
-        }
 
-        String c = null;
+        String format_cmd = null;
         if (removeUserData) {
-            c = String.format("echo \"%s %s\n %s %s\" > %s\n", 
+            format_cmd = String.format("echo \"%s %s\n %s %s\" > %s\n",
                                     COMMAND_FORMAT, PARTITION_DATA,
                                     COMMAND_UMOUNT, PARTITION_SYSTEM,
                                     UPDATE_COMMAND);
         } else {
-            c = String.format("echo \"%s %s\" > %s\n", 
+            format_cmd = String.format("echo \"%s %s\" > %s\n",
                     COMMAND_UMOUNT, PARTITION_SYSTEM,
-                    UPDATE_COMMAND);                
+                    UPDATE_COMMAND);
         }
 
         // 1. force unmount
         // 2. restore android recovery partition, and deleted it.
         // 3. delete system.img and SWAP.img.
         int r = executeSUCommands(result, "result", new String[]{
-                c,
+                format_cmd,
                 ("sh " + UPDATE_SCRIPT 
                         + " " + updateCommand.getAbsolutePath() 
                         + " " + getFilesDir().toString() + "\n"),
-                 String.format("%s/%s -b %s/%s %s\n",
-                         workingFolder.toString(), 
+                 String.format("./%s -b %s/%s %s\n",
                          ANDROID_BOOTMGR,
                          getFilesDir().toString(),
                          ANDROID_REOCVERY_IMG,
@@ -635,6 +626,7 @@ public class UbuntuInstallService extends IntentService {
         try {
             Utils.extractExecutableAsset(this, UPDATE_SCRIPT, workingFolder.toString(), true);
             Utils.extractExecutableAsset(this, ANDROID_LOOP_MOUNT, workingFolder.toString(), true);
+            Utils.extractExecutableAsset(this, ANDROID_BOOTMGR, workingFolder.toString(), true);
         } catch (IOException e) {
             e.printStackTrace();
             result.putExtra(resultExtraText, "Failed to extract supporting files");
@@ -698,7 +690,7 @@ public class UbuntuInstallService extends IntentService {
                     // still running, wait a bit
                     try { Thread.sleep(200); } catch(Exception ex) {}
                 }
-            } while (running);            
+            } while (running);
         }catch (IOException e) {
             e.printStackTrace();
             result.putExtra(resultExtraText, "Script execution exception");
