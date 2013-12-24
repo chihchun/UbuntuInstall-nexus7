@@ -762,18 +762,20 @@ public class UbuntuInstallService extends IntentService {
             String keyringsFilenames[] = new String[keyrings.length * 2];
 
             // First delete old release if it exists
-            boolean toDeleteOld = true;
-            if (prevDownload != null) {
-                if (prevDownload.equals(jsonUrl, choosenRelease.version, releaseType) &&
-                        prevDownload.mDownloadedSize > 0) {
-                    toDeleteOld = false;
+            {
+                boolean toDeleteOld = true;
+                if (prevDownload != null) {
+                    if (prevDownload.equals(jsonUrl, choosenRelease.version, releaseType) &&
+                            prevDownload.mDownloadedSize > 0) {
+                        toDeleteOld = false;
+                    }
                 }
-            }
-            if (toDeleteOld) {
-                String s = deleteRelease();
-                if (s != null) {
-                    // remove failed
-                    return handleDownloadError(result, -1, s);
+                if (toDeleteOld) {
+                    String s = deleteRelease();
+                    if (s != null) {
+                        // remove failed
+                        return handleDownloadError(result, -1, s);
+                    }
                 }
             }
 
