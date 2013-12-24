@@ -790,7 +790,7 @@ public class UbuntuInstallService extends IntentService {
             if (prevDownload != null) {
                 neededSize = mTotalSize - prevDownload.mDownloadedSize;
             }
-            boolean isStorageEnough = isStorageSpaceEnoughtBFDownload(neededSize);
+            boolean isStorageEnough = isStorageSpaceEnoughBFDownload(neededSize);
             if (! isStorageEnough) {
                 String msg = "Need more storage: ";
                 if (workPathInCache) {
@@ -1048,7 +1048,7 @@ public class UbuntuInstallService extends IntentService {
                         flen = 0;
                     } catch (Exception e) {}
                 }
-                // don't record file that won't consider for resume !
+                // don't account file that won't consider for resume !
                 if (flen > 0 && resume) {
                     throw new ECancelException(flen);
                 }
@@ -1130,7 +1130,7 @@ public class UbuntuInstallService extends IntentService {
      * @param downloadSize: download size from json. 0 means file already downloaded.
      * @return true if stoarge size is ok to go.
      */
-    private boolean isStorageSpaceEnoughtBFDownload(long downloadSize) {
+    private boolean isStorageSpaceEnoughBFDownload(long downloadSize) {
         long dataSizeRequired = INSTALL_SIZE_REQUIRED;
 
         if (workPathInCache) {

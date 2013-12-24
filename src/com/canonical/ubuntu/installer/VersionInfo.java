@@ -80,7 +80,7 @@ public class VersionInfo {
         mChannelJson = sp.getString( set + JSON, "");
         mDescription = sp.getString( set + DESCRIPTION, "");
         mVersion = sp.getInt( set + VERSION, -1);
-        mDownloadedSize =  sp.getLong( set + DOWNLOADED_SIZE, -1);
+        mDownloadedSize =  sp.getLong( set + DOWNLOADED_SIZE, 0);
         mReleaseType = ReleaseType.fromValue(sp.getInt(TYPE, ReleaseType.FULL.getValue())); // default is FULL
     }
     
