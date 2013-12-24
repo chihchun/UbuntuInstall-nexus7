@@ -196,13 +196,11 @@ public class UbuntuInstallService extends IntentService {
     };
     
     class ECancelException extends Exception {
-        public ECancelException(){
+        long mDownloadedSize;
+        
+        public ECancelException(long downloadedSize){
             super();
-        }
-
-        public ECancelException(String string) {
-            // TODO Auto-generated constructor stub
-            super(string);
+            mDownloadedSize = downloadedSize;
         }
     };
 
@@ -269,8 +267,10 @@ public class UbuntuInstallService extends IntentService {
             updateInstallerState(InstallerState.DOWNLOADING);
             result = doDownloadRelease(intent);
         } else if (action.equals(CANCEL_DOWNLOAD)) {
-            // download should be already cancelled, now delete all the files
-            result = doRemoreDownload(intent);
+            // download should be already cancelled, don't delete files for might resume latter
+            // result = doRemoreDownload(intent);
+            result = new Intent(SERVICE_STATE);
+            result.putExtra(SERVICE_STATE_EXTRA_STATE, mInstallerState.ordinal());
         } else if (action.equals(PAUSE_DOWNLOAD)) {
             // TODO: handle download
         } else if (action.equals(RESUME_DOWNLOAD)) {
@@ -709,6 +709,7 @@ public class UbuntuInstallService extends IntentService {
         SharedPreferences.Editor editor = getSharedPreferences( SHARED_PREF, Context.MODE_PRIVATE).edit();
 
         Intent result = new Intent(DOWNLOAD_RESULT);
+        VersionInfo prevDownload = getDownloadVersion(this.getApplicationContext());
         try {
             File rootFolder = new File(mRootOfWorkPath);
             
@@ -759,13 +760,25 @@ public class UbuntuInstallService extends IntentService {
                     String.format("%s/%s",BASE_URL, URL_IMAGE_SIGNING),
             };            
             String keyringsFilenames[] = new String[keyrings.length * 2];
-                              
+
             // First delete old release if it exists
-            String s = deleteRelease();
-            if (s != null) {
-                // remove failed
-                return handleDownloadError(result, -1, s);
+            {
+                boolean toDeleteOld = true;
+                if (prevDownload != null) {
+                    if (prevDownload.equals(jsonUrl, choosenRelease.version, releaseType) &&
+                            prevDownload.mDownloadedSize > 0) {
+                        toDeleteOld = false;
+                    }
+                }
+                if (toDeleteOld) {
+                    String s = deleteRelease();
+                    if (s != null) {
+                        // remove failed
+                        return handleDownloadError(result, -1, s);
+                    }
+                }
             }
+
             // make sure release folder exists
             File release = new File(rootFolder,RELEASE_FOLDER);
             release.mkdir();
@@ -775,8 +788,11 @@ public class UbuntuInstallService extends IntentService {
             mProgress = 0;
             broadcastProgress(mLastSignalledProgress, null);
             mTotalSize = Utils.calculateDownloadSize(filesArray);
-
-            boolean isStorageEnough = isStorageSpaceEnoughtBFDownload(mTotalSize);
+            long neededSize = mTotalSize;
+            if (prevDownload != null) {
+                neededSize = mTotalSize - prevDownload.mDownloadedSize;
+            }
+            boolean isStorageEnough = isStorageSpaceEnoughBFDownload(neededSize);
             if (! isStorageEnough) {
                 String msg = "Need more storage: ";
                 if (workPathInCache) {
@@ -789,34 +805,63 @@ public class UbuntuInstallService extends IntentService {
             }
 
             // mProgressSteps = mTotalDownloadSize / 100; // we want 1% steps
+            long downloadedSize = 0;
+            JsonChannelParser.File currentDownloadingFile = null;
             try {
                 int i = 0;
                 for(String url : keyrings){
-                    keyringsFilenames[i++] = doDownloadUrl(new URL(url),release);
+                    keyringsFilenames[i++] = doDownloadUrl(new URL(url), release);
                     // download signature
-                    keyringsFilenames[i++] = doDownloadUrl(new URL(url+ASC_SUFFIX),release);
+                    keyringsFilenames[i++] = doDownloadUrl(new URL(url+ASC_SUFFIX), release);
                 }
 
                 // download all update images
                 i = 0;
                 for (JsonChannelParser.File file : filesArray){
-                    updateFilenames[i] = doDownloadUrl(new URL(BASE_URL + file.path),release);
+                    URL url = new URL(BASE_URL + file.path);
+                    String fileName = URLUtil.guessFileName(url.toString(), null, null);
+                    File f = new File(release, fileName);
+
+                    boolean fileNeedDownload = true;
+                    if (prevDownload != null) {
+                        long length = f.length();
+                        if (length == file.size) {
+                            fileNeedDownload = false;
+                        } else if (length > file.size) {
+                            f.delete();
+                        }
+                    }
+                    if (fileNeedDownload) {
+                        currentDownloadingFile = file;
+                        updateFilenames[i] = doDownloadFile(file, release);
+                        currentDownloadingFile = null;
+                    } else {
+                        updateFilenames[i] = fileName;
+                        mProgress += file.size;
+                        mLastSignalledProgress = (int) (mProgress * 100 / mTotalSize);
+                        broadcastProgress(mLastSignalledProgress, null);
+                    }
 
                     // check file size and check sum
-                    File f = new File(release, updateFilenames[i]);
                     long length = f.length();
                     if (length != file.size) {
                         f.delete();
                         throw new ESumNotMatchException();
                     }
+                    broadcastProgress(mLastSignalledProgress, "Checksum Verifying: " + fileName);
                     String sha256sum = Utils.getSha256Sum(f);
                     if (! sha256sum.equals(file.checksum)) {
+                        broadcastProgress(mLastSignalledProgress, "Checksum Verify failed: " + fileName);
                         f.delete();
                         throw new ESumNotMatchException();
                     }
+                    broadcastProgress(mLastSignalledProgress, "Checksum Verified: " + fileName);
+                    downloadedSize += file.size;
                     i++;
 
-                    updateFilenames[i++] = doDownloadUrl(new URL(BASE_URL + file.signature),release);
+                    // signature file size is not accounted for resume since it's quite small
+                    updateFilenames[i] = doDownloadFileSignature(file, release);
+                    i++;
                 }
             } catch (MalformedURLException e) {
                 Log.e(TAG, "Failed to download release:", e);
@@ -825,6 +870,26 @@ public class UbuntuInstallService extends IntentService {
                 Log.e(TAG, "Failed to download release:", e);
                 return handleDownloadError(result, -1, "File not found");
             } catch (IOException e){
+                if (currentDownloadingFile != null) {
+                    try {
+                        URL url = new URL(BASE_URL + currentDownloadingFile.path);
+                        String fileName = URLUtil.guessFileName(url.toString(), null, null);
+                        File f = new File(release, fileName);
+                        downloadedSize += f.length();
+                    } catch (MalformedURLException e1) {
+                        // shouldn't happen for it should already happen.
+                    }
+                }
+
+                if (downloadedSize > 0) {
+                    VersionInfo v = new VersionInfo(alias, jsonUrl, choosenRelease.description, choosenRelease.version,
+                            downloadedSize, releaseType);
+                    v.storeVersion(editor, PREF_KEY_DOWNLOADED_VERSION);
+                } else {
+                    editor.putString(PREF_KEY_UPDATE_COMMAND, "");
+                    VersionInfo.storeEmptyVersion(editor, PREF_KEY_DOWNLOADED_VERSION);
+                }
+
                 Log.e(TAG, "Failed to download release:", e);
                 return handleDownloadError(result, -1, "IO Error");
             } catch (ESumNotMatchException e) {
@@ -832,6 +897,12 @@ public class UbuntuInstallService extends IntentService {
                 return handleDownloadError(result, -1, "Download check sum error");
             } catch (ECancelException e) {
                 // Download was cancelled by user
+                downloadedSize += e.mDownloadedSize;
+                if (downloadedSize > 0) {
+                    VersionInfo v = new VersionInfo(alias, jsonUrl, choosenRelease.description, choosenRelease.version,
+                            downloadedSize, releaseType);
+                    v.storeVersion(editor, PREF_KEY_DOWNLOADED_VERSION);
+                }
                 return handleDownloadError(result, -2, "Download cancelled by user");
             }
 
@@ -899,13 +970,11 @@ public class UbuntuInstallService extends IntentService {
                  }
             }
             // store update command
-            VersionInfo v = new VersionInfo(alias, jsonUrl, choosenRelease.description, choosenRelease.version, releaseType);
+            VersionInfo v = new VersionInfo(alias, jsonUrl, choosenRelease.description, choosenRelease.version, 0, releaseType);
             editor.putString(PREF_KEY_UPDATE_COMMAND, updateCommand.getAbsolutePath());
             editor.putInt(PREF_KEY_ESTIMATED_CHECKPOINTS, estimatedCheckCount);
             v.storeVersion(editor, PREF_KEY_DOWNLOADED_VERSION);
             mProgress = 100;
-            editor.commit();
-            
         } finally {
             if (mWakeLock != null && mWakeLock.isHeld()) {
                 mWakeLock.release();
@@ -918,39 +987,79 @@ public class UbuntuInstallService extends IntentService {
     private Intent handleDownloadError(Intent i, int res, String reason) {
         i.putExtra(DOWNLOAD_RESULT_EXTRA_INT, res);
         i.putExtra(DOWNLOAD_RESULT_EXTRA_STR, reason);
-        deleteRelease();
         return i;
     }
 
-    private String doDownloadUrl(URL url, File targerLocation) throws MalformedURLException,
+    private String doDownloadFile(JsonChannelParser.File file, File targetLocation) throws MalformedURLException,
+    FileNotFoundException, IOException, ECancelException {
+        URL url = new URL(BASE_URL + file.path);
+        return doDownloadUrl(url, targetLocation, true);
+    }
+
+    private String doDownloadFileSignature(JsonChannelParser.File file, File targetLocation) throws MalformedURLException,
+    FileNotFoundException, IOException, ECancelException {
+        URL url = new URL(BASE_URL + file.signature);
+        return doDownloadUrl(url, targetLocation);
+    }
+    
+    private String doDownloadUrl(URL url, File targertLocation) throws MalformedURLException,
+    FileNotFoundException, IOException, ECancelException {
+        return doDownloadUrl(url, targertLocation, false);
+    }
+
+    private String doDownloadUrl(URL url, File targertLocation, boolean resume) throws MalformedURLException,
     FileNotFoundException, IOException, ECancelException {
         Log.v(TAG, "Downloading:" + url.toString());
         URLConnection conn = url.openConnection();
         String fileName = URLUtil.guessFileName(url.toString(), null, null);
         // TODO: update progress accordingly
-        broadcastProgress(mLastSignalledProgress, "Downloading: " + fileName);        
-        File file = new File(targerLocation, fileName);
-        if (file.exists() && file.isFile()) {
+        broadcastProgress(mLastSignalledProgress, "Downloading: " + fileName);
+        File file = new File(targertLocation, fileName);
+        if ((! resume) && file.exists() && file.isFile()) {
             file.delete();
         }
-        
-        FileOutputStream output = new FileOutputStream(file);
-        
+
+        long resumePosition = 0;
+        if (resume) {
+            resumePosition = file.length();
+            if (resumePosition > 0) {
+                String rangeHeader = String.format(Locale.US, "bytes=%d-", resumePosition);
+                conn.setRequestProperty("Range", rangeHeader);
+                Log.i(TAG, String.format("Resuming download from %d bytes.", resumePosition));
+                mProgress += resumePosition;
+            }
+        }
+
+        // resumePosition > 0 ==> append mode
+        FileOutputStream output = new FileOutputStream(file, resumePosition > 0);
+
         InputStream input = conn.getInputStream();
-        
+
         byte[] buffer = new byte[1024];
         int len = 0;
-        
+
         while ((len = input.read(buffer)) > 0) {
             if (mIsCanceled) {
                 output.close();
+                conn = null;
                 input.close();
-                throw new ECancelException("Cancelled");
+                long flen = file.length();
+                if (flen > 0) {
+                    try {
+                        file.delete();
+                        flen = 0;
+                    } catch (Exception e) {}
+                }
+                // don't account file that won't consider for resume !
+                if (flen > 0 && resume) {
+                    throw new ECancelException(flen);
+                }
+                throw new ECancelException(0);
             }
             output.write(buffer, 0, len);
             mProgress += len;
             // shall we broadcast progress?
-            if ( mLastSignalledProgress < (mProgress * 100 / mTotalSize)) {
+            if (mLastSignalledProgress < (mProgress * 100 / mTotalSize)) {
                 // update and signal new progress
                 mLastSignalledProgress = (int) (mProgress * 100 / mTotalSize);
                 broadcastProgress(mLastSignalledProgress, null);
@@ -1023,7 +1132,7 @@ public class UbuntuInstallService extends IntentService {
      * @param downloadSize: download size from json. 0 means file already downloaded.
      * @return true if stoarge size is ok to go.
      */
-    private boolean isStorageSpaceEnoughtBFDownload(long downloadSize) {
+    private boolean isStorageSpaceEnoughBFDownload(long downloadSize) {
         long dataSizeRequired = INSTALL_SIZE_REQUIRED;
 
         if (workPathInCache) {
@@ -1052,9 +1161,26 @@ public class UbuntuInstallService extends IntentService {
         }
         return null;
     }
+    /**
+     * Internal helper function to get current DOWNLOAD_VERSION even download is partial
+     * @param context
+     * @return version info for download image.
+     */
+    private static VersionInfo getDownloadVersion(Context context) {
+        return getVersionWithPrefKey(context, PREF_KEY_DOWNLOADED_VERSION);
+    }
     
-    public static VersionInfo getDownloadedVersion(Context c) {
-        return getVersionWithPrefKey(c, PREF_KEY_DOWNLOADED_VERSION);
+    /**
+     * To get current DOWNLOAD_VERSION for completed download.
+     * @param context
+     * @return Version info for download-ed image.
+     */
+    public static VersionInfo getDownloadedVersion(Context context) {
+        VersionInfo v = getVersionWithPrefKey(context, PREF_KEY_DOWNLOADED_VERSION);
+        if (v != null) {
+            if (v.mDownloadedSize == 0) return v;
+        }
+        return null;
     }
 
     public static VersionInfo getInstalledVersion(Context c) {
@@ -1076,8 +1202,12 @@ public class UbuntuInstallService extends IntentService {
      */
     public static boolean checkifReadyToInstall(Context context) {
         SharedPreferences pref = context.getSharedPreferences(SHARED_PREF, Context.MODE_PRIVATE);
+        VersionInfo versionInfo = getDownloadVersion(context);
+        if (versionInfo == null) return false;
+        if (versionInfo.getDownloadedSize() != 0) return false;
+        
         String command = pref.getString(PREF_KEY_UPDATE_COMMAND, "");
-        if (!command.equals("")){
+        if (!command.equals("")) {
             File f = new File(command);
             if (f.exists()) {
                 return true;

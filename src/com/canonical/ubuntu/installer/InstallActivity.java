@@ -409,8 +409,6 @@ public class InstallActivity extends Activity {
                     }
                     Utils.showToast(context, reason);
                     updateInfoOnUiThread(reason);
-                    // delete failed download
-                    deleteDownload();
                     requestChannelList();
                 }
             } else if (action.equals(UbuntuInstallService.VERSION_UPDATE)) {
