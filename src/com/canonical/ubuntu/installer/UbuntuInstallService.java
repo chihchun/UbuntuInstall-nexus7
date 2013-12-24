@@ -1148,13 +1148,22 @@ public class UbuntuInstallService extends IntentService {
         }
         return null;
     }
-    
-    private static VersionInfo getDownloadVersion(Context c) {
-        return getVersionWithPrefKey(c, PREF_KEY_DOWNLOADED_VERSION);
+    /**
+     * Internal helper function to get current DOWNLOAD_VERSION even download is partial
+     * @param context
+     * @return version info for download image.
+     */
+    private static VersionInfo getDownloadVersion(Context context) {
+        return getVersionWithPrefKey(context, PREF_KEY_DOWNLOADED_VERSION);
     }
     
-    public static VersionInfo getDownloadedVersion(Context c) {
-        VersionInfo v = getVersionWithPrefKey(c, PREF_KEY_DOWNLOADED_VERSION);
+    /**
+     * To get current DOWNLOAD_VERSION for completed download.
+     * @param context
+     * @return Version info for download-ed image.
+     */
+    public static VersionInfo getDownloadedVersion(Context context) {
+        VersionInfo v = getVersionWithPrefKey(context, PREF_KEY_DOWNLOADED_VERSION);
         if (v != null) {
             if (v.mDownloadedSize == 0) return v;
         }
