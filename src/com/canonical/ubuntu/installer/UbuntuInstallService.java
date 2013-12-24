@@ -833,19 +833,27 @@ public class UbuntuInstallService extends IntentService {
                         currentDownloadingFile = file;
                         updateFilenames[i] = doDownloadFile(file, release);
                         currentDownloadingFile = null;
+                    } else {
+                        updateFilenames[i] = fileName;
+                        mProgress += file.size;
+                        mLastSignalledProgress = (int) (mProgress * 100 / mTotalSize);
+                        broadcastProgress(mLastSignalledProgress, null);
                     }
-                    
+
                     // check file size and check sum
                     long length = f.length();
                     if (length != file.size) {
                         f.delete();
                         throw new ESumNotMatchException();
                     }
+                    broadcastProgress(mLastSignalledProgress, "Checksum Verifying: " + fileName);
                     String sha256sum = Utils.getSha256Sum(f);
                     if (! sha256sum.equals(file.checksum)) {
+                        broadcastProgress(mLastSignalledProgress, "Checksum Verify failed: " + fileName);
                         f.delete();
                         throw new ESumNotMatchException();
                     }
+                    broadcastProgress(mLastSignalledProgress, "Checksum Verified: " + fileName);
                     downloadedSize += file.size;
                     i++;
 
