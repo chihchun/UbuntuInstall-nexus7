@@ -857,8 +857,8 @@ public class UbuntuInstallService extends IntentService {
                     downloadedSize += file.size;
                     i++;
 
+                    // signature file size is not accounted for resume since it's quite small
                     updateFilenames[i] = doDownloadFileSignature(file, release);
-                    downloadedSize += Utils.SIGNATURE_SIZE;
                     i++;
                 }
             } catch (MalformedURLException e) {
@@ -1041,12 +1041,18 @@ public class UbuntuInstallService extends IntentService {
                 output.close();
                 conn = null;
                 input.close();
-                if (file.length() == 0) {
+                long flen = file.length();
+                if (flen > 0) {
                     try {
                         file.delete();
+                        flen = 0;
                     } catch (Exception e) {}
                 }
-                throw new ECancelException(file.length());
+                // don't record file that won't consider for resume !
+                if (flen > 0 && resume) {
+                    throw new ECancelException(flen);
+                }
+                throw new ECancelException(0);
             }
             output.write(buffer, 0, len);
             mProgress += len;
