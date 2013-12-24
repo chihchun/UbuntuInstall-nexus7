@@ -1041,6 +1041,11 @@ public class UbuntuInstallService extends IntentService {
                 output.close();
                 conn = null;
                 input.close();
+                if (file.length() == 0) {
+                    try {
+                        file.delete();
+                    } catch (Exception e) {}
+                }
                 throw new ECancelException(file.length());
             }
             output.write(buffer, 0, len);
