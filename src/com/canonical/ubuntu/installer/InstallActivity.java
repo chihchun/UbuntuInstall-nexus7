@@ -1,7 +1,12 @@
 package com.canonical.ubuntu.installer;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 
 import com.canonical.ubuntu.installer.R;
 import com.canonical.ubuntu.installer.TextPickerDialog;
@@ -12,6 +17,7 @@ import com.canonical.ubuntu.installer.VersionInfo.ReleaseType;
 import com.canonical.ubuntu.widget.UbuntuButton;
 
 import android.os.Bundle;
+import android.os.Environment;
 import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.BroadcastReceiver;
@@ -19,6 +25,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.text.Html;
 import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
@@ -125,6 +133,44 @@ public class InstallActivity extends Activity {
                 deleteDownload();
                 mDownloadedVersion = null;
                 requestServiceState();
+                break;
+            case R.id.action_dump_terminal:
+                CharSequence terminalText = mTerminal.getText();
+                if (terminalText.length() == 0) {
+                    Utils.showToast(this.getApplicationContext(), R.string.terminal_is_empty);
+                    break;
+                }
+
+                Calendar c = Calendar.getInstance();
+                SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss", Locale.US);
+                String formattedDate = df.format(c.getTime());
+
+                String filename = "UbuntuInstaller-" + formattedDate + ".log";
+                File dumpFile = null;
+                try {
+                    File vSDCard;
+                    if(Environment.getExternalStorageState().equals(Environment.MEDIA_REMOVED)) {
+                        Utils.showToast(this.getApplicationContext(), R.string.external_storage_unavailable);
+                        break;
+                    } else {
+                        vSDCard = Environment.getExternalStorageDirectory();
+                    }
+
+                    dumpFile = new File(vSDCard + "/" + filename);
+                    FileWriter dumpFileWriter = new FileWriter(dumpFile);
+                    dumpFileWriter.write("Device: " + android.os.Build.FINGERPRINT + "\n");
+
+                    Context context = this.getApplicationContext();
+                    PackageInfo pInfo = context.getPackageManager().getPackageInfo(context.getPackageName(), PackageManager.GET_META_DATA);
+                    String versionInfo = pInfo.versionName;
+                    dumpFileWriter.write("APK Version: " + versionInfo + "\n");
+
+                    dumpFileWriter.write(terminalText.toString());
+                    dumpFileWriter.close();
+                    Utils.showToast(this.getApplicationContext(), getResources().getString(R.string.terminal_dump_succ) + ": " + dumpFile.getPath());
+                } catch (Exception e) {
+                    Utils.showToast(this.getApplicationContext(), getResources().getString(R.string.terminal_dump_fail) + ": " + dumpFile.getPath());
+                }
                 break;
         }
         return super.onOptionsItemSelected(item);
