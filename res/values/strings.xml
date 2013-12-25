@@ -4,6 +4,7 @@
     <string name="app_name">Ubuntu Dual Boot</string>
     <string name="action_settings">Settings</string>
     <string name="action_detele_download">Delete download</string>
+    <string name="action_dump_terminal">Dump Terminal</string>
     <string name="action_install">Install</string>
     <string name="action_uninstall">Uninstall Ubuntu</string>
     <string name="action_uninstall_button">Uninstall</string>
@@ -29,7 +30,10 @@
     <string name="deleting_user_data">Deleting Ubuntu user data</string>
     <string name="fail_fetching_versions">Fail to fetch available versions</string>
     <string name="uninstall_dialog_message">This will remove all Ubuntu system files and Ubuntu swap file</string>
-    
+    <string name="terminal_is_empty">Terminal is emtpy.</string>
+    <string name="terminal_dump_succ">Dump Terminal to file success</string>
+    <string name="terminal_dump_fail">Dump Terminal to file fail</string>
+    <string name="external_storage_unavailable">External Storage is not available</string>
     <!-- Strings for Launch screen -->
     <string name="launch_title">Ubuntu</string>
     <string name="label_channel">Channel:</string>
