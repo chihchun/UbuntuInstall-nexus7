@@ -1,0 +1,16 @@
+#!/sbin/sh
+# Copyright (C) 2013 Canonical Ltd.
+#
+# Check if ubuntu_command exist
+# print the path and exit 0 if found.
+
+FILES="/cache/recovery/ubuntu_command /cache/ubunturecovery/ubuntu_command"
+
+for file in $FILES ; do 
+    if [[ -f $file ]] ; then
+        echo $file
+        exit 0
+    fi
+done
+
+exit -1

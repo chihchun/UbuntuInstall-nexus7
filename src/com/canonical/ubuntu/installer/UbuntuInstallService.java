@@ -9,6 +9,7 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -90,6 +91,7 @@ public class UbuntuInstallService extends IntentService {
     public static final String INSTALL_UBUNTU = "com.canonical.ubuntuinstaller.UbuntuInstallService.INSTALL_UBUNTU";
     public static final String CANCEL_INSTALL = "com.canonical.ubuntuinstaller.UbuntuInstallService.CANCEL_INSTALL";
     public static final String UNINSTALL_UBUNTU = "com.canonical.ubuntuinstaller.UbuntuInstallService.UINSTALL_UBUNTU";
+    public static final String UPGRADE_UBUNTU = "com.canonical.ubuntuinstaller.UbuntuInstallService.UPGRADE_UBUNTU";
     public static final String UNINSTALL_UBUNTU_EXTRA_REMOVE_USER_DATA = "user_data";
     public static final String CHECK_FOR_UPDATE = "com.canonical.ubuntuinstaller.UbuntuInstallService.CHECK_FOR_UPDATE";
     public static final String DELETE_UBUNTU_USER_DATA = "com.canonical.ubuntuinstaller.UbuntuInstallService.DELETE_USER_DATA";
@@ -151,6 +153,7 @@ public class UbuntuInstallService extends IntentService {
     private static final String TAR = "u_tar";
     private static final String ANDROID_LOOP_MOUNT = "aloopmount";
     private static final String ANDROID_BOOTMGR = "bootmgr";
+    private static final String UPGRADECHECKER = "upgrade-checker";
     private static final String UPDATE_SCRIPT = "system-image-upgrader";
     private static final String ARCHIVE_MASTER = "archive-master.tar.xz";
     private static final String ARCHIVE_MASTER_ASC = "archive-master.tar.xz.asc";
@@ -179,6 +182,7 @@ public class UbuntuInstallService extends IntentService {
     private static final int PROGRESS_MKSWAP_ADJUSTMENT = 17; // equivalent of time tar --checkpoint=200
     private PowerManager mPowerManager;
     private PowerManager.WakeLock mWakeLock;
+    // FIXME make workPath in Cache a private function
     private boolean workPathInCache = false;
     private String mRootOfWorkPath;
     private boolean mIsCanceled;
@@ -218,7 +222,7 @@ public class UbuntuInstallService extends IntentService {
     public UbuntuInstallService() {
         super(TAG);
     }
-    
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -231,7 +235,7 @@ public class UbuntuInstallService extends IntentService {
             mRootOfWorkPath = "/cache";
             workPathInCache = true;
         } else {
-            mRootOfWorkPath = getFilesDir().toString(); //  "/data/data/com.canonical.ubuntuinstaller/files";
+            mRootOfWorkPath = getFilesDir().toString(); //  "/data/data/com.canonical.ubuntu.installer/files";
             workPathInCache = false;
         }
         mInstallerState = InstallerState.READY;
@@ -281,6 +285,13 @@ public class UbuntuInstallService extends IntentService {
         } else if (action.equals(INSTALL_UBUNTU)) {
             updateInstallerState(InstallerState.INSTALLING);
             result = doInstallUbuntu(intent);
+        } else if (action.equals(UPGRADE_UBUNTU)) {
+            // check if the upgradeable images available.
+            if(isUpgradeable()) {
+                result = new Intent(VERSION_UPDATE);
+                // updateInstallerState(InstallerState.INSTALLING);
+                result = doInstallUbuntu(intent);
+            }
         } else if (action.equals(CANCEL_INSTALL)) {
             // install should be already cancelled, try to delete it now
             updateInstallerState(InstallerState.UNINSTALLING);
@@ -309,7 +320,7 @@ public class UbuntuInstallService extends IntentService {
 
     private Intent doGetChannelList(Intent intent) {
         Intent result = new Intent(AVAILABLE_CHANNELS);
-        // 
+
         HashMap<String, String> channels= new HashMap<String, String>();
         boolean includeHidden = getSharedPreferences( SHARED_PREF, Context.MODE_PRIVATE).getBoolean(PREF_KEY_DEVELOPER, false);
         String deviceModel = Build.DEVICE.toLowerCase(Locale.US);
@@ -365,73 +376,89 @@ public class UbuntuInstallService extends IntentService {
     }
 
     private Intent doInstallUbuntu(Intent intent) {
-        Log.w(TAG, "doInstallUbuntu");        
+        Log.w(TAG, "doInstallUbuntu");
         Intent result = new Intent(INSTALL_RESULT);
+
         // get update command file
-        SharedPreferences pref = getSharedPreferences( SHARED_PREF, Context.MODE_PRIVATE);
-        String updateCommand = pref.getString(PREF_KEY_UPDATE_COMMAND,"");
-        mTotalSize = pref.getInt(PREF_KEY_ESTIMATED_CHECKPOINTS, 0);
-        mLastSignalledProgress = 0;
+        String updateCommand = this.getUpdateCommand();
         if (updateCommand.equals("") || ! new File(updateCommand).exists()) {
             return handleInstallFail(result, -1, "Missing update command");
         }
+
+        SharedPreferences pref = getSharedPreferences(SHARED_PREF, Context.MODE_PRIVATE);
+        mTotalSize = pref.getInt(PREF_KEY_ESTIMATED_CHECKPOINTS, 0);
+        mLastSignalledProgress = 0;
+
         mWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ubuntu-installing");
         try {
-            File rootFolder = new File(mRootOfWorkPath);
-            File supportingFiles = new File(rootFolder, RELEASE_FOLDER);
-            broadcastProgress(0, "Extracting supporting files");
+            // can not assume update scripts are stored in same folder with image files.
+            // it can be upgraded from /cache/recovery, which is read only for stand-alone app.
+            String supportingFilesFolder = this.getFilesDir().getAbsolutePath();
+            String imagesfolder = new File(updateCommand).getParent();
+
+            broadcastProgress(0, "Extracting supporting files at " + supportingFilesFolder);
             try {
-                Utils.extractExecutableAsset(this, BUSYBOX, supportingFiles.toString(), true);
-                Utils.extractExecutableAsset(this, ANDROID_BOOTMGR, supportingFiles.toString(), true);
-                Utils.extractExecutableAsset(this, GPG, supportingFiles.toString(), true);
-                Utils.extractExecutableAsset(this, TAR, supportingFiles.toString(), true);
-                Utils.extractExecutableAsset(this, UPDATE_SCRIPT, supportingFiles.toString(), true);
-                Utils.extractExecutableAsset(this, ANDROID_LOOP_MOUNT, supportingFiles.toString(), true);
-                Utils.extractExecutableAsset(this, ARCHIVE_MASTER, supportingFiles.toString(), false);
-                Utils.extractExecutableAsset(this, ARCHIVE_MASTER_ASC, supportingFiles.toString(), false);
-                Utils.extractExecutableAsset(this, U_REBOOT_APP, supportingFiles.toString(), false);
-                Utils.extractExecutableAsset(this, U_REBOOT_APP_ASC, supportingFiles.toString(), false);
+                // extract utils into working folder.
+                Utils.extractExecutableAsset(this, BUSYBOX, supportingFilesFolder, true);
+                Utils.extractExecutableAsset(this, ANDROID_BOOTMGR, supportingFilesFolder, true);
+                Utils.extractExecutableAsset(this, GPG, supportingFilesFolder, true);
+                Utils.extractExecutableAsset(this, TAR, supportingFilesFolder, true);
+                Utils.extractExecutableAsset(this, UPDATE_SCRIPT, supportingFilesFolder, true);
+                Utils.extractExecutableAsset(this, ANDROID_LOOP_MOUNT, supportingFilesFolder, true);
+                Utils.extractExecutableAsset(this, ARCHIVE_MASTER, supportingFilesFolder, false);
+                Utils.extractExecutableAsset(this, ARCHIVE_MASTER_ASC, supportingFilesFolder, false);
+                Utils.extractExecutableAsset(this, U_REBOOT_APP, supportingFilesFolder, false);
+                Utils.extractExecutableAsset(this, U_REBOOT_APP_ASC, supportingFilesFolder, false);
             } catch (IOException e) {
                 e.printStackTrace();
-                return handleInstallFail(result, -1, "Failed to extract supporting assets");
+                return handleInstallFail(result, -1,
+                        String.format("Failed to extract supporting assets at %s: %s", supportingFilesFolder, e.getMessage()));
             }
-            // get superuser and run update script
-            broadcastProgress(-1, "Starting update script");
-            try {
-                Process process = Runtime.getRuntime().exec("su", null, supportingFiles);
-                DataOutputStream os = new DataOutputStream(process.getOutputStream());
-                // debug purpose.
-                // os.writeBytes("set -x\n");
-                // make sure we are in work folder
-                os.writeBytes(String.format("cd %s\n", supportingFiles.getAbsolutePath()));
-                os.writeBytes("echo \"SU granted\"\n");
+
+            List<String> shellcmds = new ArrayList<String>();
+            {
+                shellcmds.add("echo \"SU granted\"");
+                // make sure we are in images folder
+                shellcmds.add(String.format("cd %s\n", imagesfolder));
                 // run system-image-upgrader.
-                os.writeBytes(String.format("sh %s %s %s\n",
+                shellcmds.add(String.format("sh %s/%s %s %s\n",
+                        supportingFilesFolder,
                         UPDATE_SCRIPT,
                         updateCommand,
                         getFilesDir().getAbsolutePath()
                         ));
-                os.writeBytes(String.format("cd %s\n", supportingFiles.getAbsolutePath()));
-                // backup original recovery.
+                // Only backup original recovery, when there is no backuped file.
                 if(!new File(getFilesDir().toString(), ANDROID_REOCVERY_IMG).exists()) {
-                    os.writeBytes(String.format("./%s -b %s %s/%s\n",
+                    shellcmds.add(String.format("%s/%s -b %s %s/%s\n",
+                            supportingFilesFolder,
                             ANDROID_BOOTMGR,
                             Utils.getRecoveryPartitionPath(),
                             getFilesDir().getAbsolutePath(),
                             ANDROID_REOCVERY_IMG
                             ));
                 }
-                os.writeBytes(String.format("cd %s\n", supportingFiles.getAbsolutePath()));
                 // overwrite the recovery partition.
-                os.writeBytes(String.format("./%s -b %s/%s %s\n",
+                shellcmds.add(String.format("%s/%s -b %s/%s %s\n",
+                        supportingFilesFolder,
                         ANDROID_BOOTMGR,
                         getFilesDir().getAbsolutePath(),
                         UBUNTU_BOOT_IMG,
                         Utils.getRecoveryPartitionPath()
                         ));
+                shellcmds.add("exit");
+            }
 
-                // close terminal
-                os.writeBytes("exit\n");
+            broadcastProgress(-1, "Starting update script - " + updateCommand);
+            try {
+                // get superuser and run update script
+                Process process = Runtime.getRuntime().exec("su", null);
+                DataOutputStream os = new DataOutputStream(process.getOutputStream());
+                // debug purpose.
+                // os.writeBytes("set -x\n");
+                for(String cmd: shellcmds) {
+                    Log.d(TAG, "exec " + cmd);
+                    os.writeBytes(cmd + "\n");
+                }
                 os.flush();
                 InputStream is = process.getInputStream();
                 InputStream es = process.getErrorStream();
@@ -469,7 +496,7 @@ public class UbuntuInstallService extends IntentService {
                             }
                         }
                         Log.d(TAG, "Stderr Output: " + seg);
-                    }                    
+                    }
                     try {
                         int ret = process.exitValue();
                         Log.v(TAG, "Worker thread exited with: " + ret);
@@ -477,9 +504,9 @@ public class UbuntuInstallService extends IntentService {
                         if (ret == 255 || !scriptExecuted ) {
                             return handleInstallFail(result, -1, "Failed to get SU permissions");
                         } else if (ret != 0) {
-                            return handleInstallFail(result, -1, "Instalation failed");
+                            return handleInstallFail(result, -1, "Installaction failed");
                         }
-                        running =false;
+                        running = false;
                     } catch (IllegalThreadStateException e) {
                         // still running, wait a bit
                         try { Thread.sleep(200); } catch(Exception ex) {}
@@ -495,10 +522,10 @@ public class UbuntuInstallService extends IntentService {
                 mWakeLock.release();
             }
         }
-        SharedPreferences.Editor editor = pref.edit();
-        editor.putString(PREF_KEY_UPDATE_COMMAND, "");
+        cleanUpdateCommand();
+
         VersionInfo v = new VersionInfo(pref, PREF_KEY_DOWNLOADED_VERSION);
-        v.storeVersion(editor, PREF_KEY_INSTALLED_VERSION);
+        v.storeVersion(pref.edit(), PREF_KEY_INSTALLED_VERSION);
         mProgress = 100;
         result.putExtra(INSTALL_RESULT_EXTRA_INT, 0);
         return result;
@@ -506,7 +533,7 @@ public class UbuntuInstallService extends IntentService {
     
     private Intent handleInstallFail(Intent i, int res, String failReason) {
         i.putExtra(INSTALL_RESULT_EXTRA_INT, -1);
-        i.putExtra(INSTALL_RESULT_EXTRA_STR, "Missing update command");
+        i.putExtra(INSTALL_RESULT_EXTRA_STR, failReason);
         doUninstallUbuntu(i);
         return i;
     }
@@ -516,9 +543,11 @@ public class UbuntuInstallService extends IntentService {
         File updateCommand = new File(workingFolder, UPDATE_COMMAND);
         Intent result = new Intent(VERSION_UPDATE);
         boolean removeUserData = intent.getBooleanExtra(UNINSTALL_UBUNTU_EXTRA_REMOVE_USER_DATA, false);
+        Log.d(TAG, "doUninstallUbuntu");
 
         String format_cmd = null;
         if (removeUserData) {
+            Log.d(TAG, "removing user data.");
             format_cmd = String.format("echo \"%s %s\n %s %s\" > %s\n",
                                     COMMAND_FORMAT, PARTITION_DATA,
                                     COMMAND_UMOUNT, PARTITION_SYSTEM,
@@ -548,11 +577,9 @@ public class UbuntuInstallService extends IntentService {
         } );
         if (r == 0) {
             // delete installed version in preferences
-            SharedPreferences pref = getSharedPreferences( SHARED_PREF, Context.MODE_PRIVATE);
-            SharedPreferences.Editor editor = pref.edit();
-            editor.putString(PREF_KEY_UPDATE_COMMAND, "");
-            VersionInfo.storeEmptyVersion(editor, PREF_KEY_INSTALLED_VERSION);
-            editor.commit();
+            this.cleanUpdateCommand();
+            VersionInfo.storeEmptyVersion(
+                    getSharedPreferences(SHARED_PREF, Context.MODE_PRIVATE).edit(), PREF_KEY_INSTALLED_VERSION);
         }
         result.putExtra("result", r);
         return result;
@@ -610,7 +637,6 @@ public class UbuntuInstallService extends IntentService {
     }
 
     /**
-     * 
      * @param result intent to update with result text
      * @param resultExtraText 
      * @param commands commands to execute
@@ -691,7 +717,7 @@ public class UbuntuInstallService extends IntentService {
                     try { Thread.sleep(200); } catch(Exception ex) {}
                 }
             } while (running);
-        }catch (IOException e) {
+        } catch (IOException e) {
             e.printStackTrace();
             result.putExtra(resultExtraText, "Script execution exception");
             return -1;
@@ -702,7 +728,7 @@ public class UbuntuInstallService extends IntentService {
         }
         return 0;
     }
-    
+
     private Intent doDownloadRelease(Intent intent) {
         mWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ufa-downloading");
         mIsCanceled = false;
@@ -780,7 +806,7 @@ public class UbuntuInstallService extends IntentService {
             }
 
             // make sure release folder exists
-            File release = new File(rootFolder,RELEASE_FOLDER);
+            File release = new File(rootFolder, RELEASE_FOLDER);
             release.mkdir();
             // download release
             long time = System.currentTimeMillis();
@@ -970,8 +996,11 @@ public class UbuntuInstallService extends IntentService {
                  }
             }
             // store update command
+            setUpdateCommand(updateCommand.getAbsolutePath());
+
+            // updated downloaded information.
             VersionInfo v = new VersionInfo(alias, jsonUrl, choosenRelease.description, choosenRelease.version, 0, releaseType);
-            editor.putString(PREF_KEY_UPDATE_COMMAND, updateCommand.getAbsolutePath());
+
             editor.putInt(PREF_KEY_ESTIMATED_CHECKPOINTS, estimatedCheckCount);
             v.storeVersion(editor, PREF_KEY_DOWNLOADED_VERSION);
             mProgress = 100;
@@ -1072,13 +1101,12 @@ public class UbuntuInstallService extends IntentService {
     }
 
     /**
-     * 
      * @return null if success or error
      */
     private String deleteRelease() {
         // First delete old release if it exists
         File rootFolder = new File(mRootOfWorkPath);
-        File release = new File(rootFolder,RELEASE_FOLDER);
+        File release = new File(rootFolder, RELEASE_FOLDER);
         if (release.exists()) {
             try {
                 String command = "rm -rf " + release.getAbsolutePath();
@@ -1089,22 +1117,23 @@ public class UbuntuInstallService extends IntentService {
                     if (r == 255) {
                         return "failed to remove old download";
                     } 
-                } catch (InterruptedException e) {   
+                } catch (InterruptedException e) {
+                    // FIXME: throw an exception?
+                    Log.w(TAG, "failed to remove old download");
                 }   
             }catch (IOException e) {
                 e.printStackTrace();
                 Log.w(TAG, "failed to remove old download");
                 return "failed to remove old download";
             }
-            SharedPreferences pref = getSharedPreferences(SHARED_PREF, Context.MODE_PRIVATE);
-            SharedPreferences.Editor editor = pref.edit();
-            editor.putString(PREF_KEY_UPDATE_COMMAND, "");
-            VersionInfo.storeEmptyVersion(editor, PREF_KEY_DOWNLOADED_VERSION);
-            editor.commit();
+            // cleanup update command
+            this.cleanUpdateCommand();
+            // clean up version number.
+            VersionInfo.storeEmptyVersion(getSharedPreferences(SHARED_PREF, Context.MODE_PRIVATE).edit(), PREF_KEY_DOWNLOADED_VERSION);
         }
         return null;
     }
-    
+
     private void broadcastInstallerState() {
         Intent i = new Intent(SERVICE_STATE);
         i.putExtra(SERVICE_STATE, mInstallerState.ordinal());
@@ -1126,7 +1155,7 @@ public class UbuntuInstallService extends IntentService {
         }
         sendBroadcast(i);
     }
-    
+
     /**
      * Check whether storage free space is enough.
      * @param downloadSize: download size from json. 0 means file already downloaded.
@@ -1161,6 +1190,7 @@ public class UbuntuInstallService extends IntentService {
         }
         return null;
     }
+
     /**
      * Internal helper function to get current DOWNLOAD_VERSION even download is partial
      * @param context
@@ -1186,6 +1216,7 @@ public class UbuntuInstallService extends IntentService {
     public static VersionInfo getInstalledVersion(Context c) {
         return getVersionWithPrefKey(c, PREF_KEY_INSTALLED_VERSION);
     }
+
     public static boolean isUbuntuInstalled(Context c) {
         SharedPreferences pref = c.getSharedPreferences(SHARED_PREF, Context.MODE_PRIVATE);
         if (VersionInfo.hasValidVersion(pref, PREF_KEY_INSTALLED_VERSION)) {
@@ -1194,9 +1225,115 @@ public class UbuntuInstallService extends IntentService {
         }
         return false;
     }
-    
+
     /**
-     * Check if there is downloaded release ready to install
+     * check if recovery command is exist on the system.
+     * @return if there is upgradeable images stored in /cache.
+     */
+    private boolean isUpgradeable() {
+        if(new File("/cache").canRead()) {
+            // This only works in ROM.
+            String[] candidates = {
+                    "/cache/recovery/ubuntu_command",
+                    "/cache/ubunturecovery/ubuntu_command",
+            };
+            for(String command: candidates) {
+                File cmd = new File(command);
+                if(cmd.exists() && cmd.isFile()) {
+                    Log.d(TAG, "Found upgrade command - " + cmd.getAbsoluteFile().toString());
+                    // find the upgradeable file, stored into pref.
+                    setUpdateCommand(cmd.getAbsolutePath());
+                    return true;
+                }
+            }
+        } else {
+            // this apk is not installed in ROM, nor have system key signed.
+            // will prompt a dialog for su command
+            File workingFolder = new File(this.mRootOfWorkPath + "/" + TEMP_FOLDER);
+            if (!workingFolder.exists() && !workingFolder.mkdir()) {
+                return false;
+            }
+            // utils we need.
+            try {
+                Utils.extractExecutableAsset(this, UPGRADECHECKER, workingFolder.toString(), true);
+            } catch (IOException e) {
+                e.printStackTrace();
+                return false;
+            }
+
+            try {
+                Process process = Runtime.getRuntime().exec("su", null, workingFolder);
+                DataOutputStream os = new DataOutputStream(process.getOutputStream());
+                // make sure we are in work folder
+                os.writeBytes(String.format("cd %s\n", workingFolder.getAbsolutePath()));
+                os.writeBytes(String.format("sh %s\n", UPGRADECHECKER));
+                // clean up temp folder
+                os.writeBytes(String.format("rm -rf %s\n", workingFolder.getAbsolutePath()));
+                os.writeBytes("exit\n");
+                os.flush();
+
+                InputStream is = process.getInputStream();
+                byte[] buff = new byte[4096];
+                String cmd = "";
+                do {
+                    while( is.available() > 0) {
+                        int read = is.read(buff);
+                        if ( read <= 0 ) {
+                            break;
+                        }
+                        cmd = new String(buff, 0, read);
+                        Log.d(TAG, "Script Output: " + cmd);
+                    }
+                    try {
+                        int ret = process.exitValue();
+                        Log.d(TAG, "Worker thread exited with: " + ret);
+                        break;
+                    } catch (IllegalThreadStateException e) {
+                        // still running, wait a bit
+                        try { Thread.sleep(200); } catch(Exception ex) {}
+                    }
+                } while (true);
+                // setUpdateCommand(cmd);
+            } catch (IOException e) {
+                e.printStackTrace();
+                return false;
+            } finally {
+                workingFolder.delete();
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * set update command string stored in shared preferences.
+     * @file absolute file path of Ubuntu Command file.
+     */
+    private String getUpdateCommand(){
+        return getSharedPreferences(SHARED_PREF, Context.MODE_PRIVATE).getString(PREF_KEY_UPDATE_COMMAND, "");
+    }
+
+    /**
+     * set update command string stored in shared preferences.
+     * @file absolute file path of Ubuntu Command file.
+     */
+    private void setUpdateCommand(String file){
+        getSharedPreferences(SHARED_PREF, Context.MODE_PRIVATE).
+        edit().
+        putString(PREF_KEY_UPDATE_COMMAND, file).
+        commit();
+    }
+
+    /**
+     * clean update command string stored in shared preferences.
+     */
+    private void cleanUpdateCommand() {
+        this.setUpdateCommand("");
+    }
+
+    /**
+     * Check if there is downloaded release ready to install.
+     * If command file is not exist, reset downloaded version.
      * @param context
      * @return true if there is downloaded release ready to install
      */
@@ -1220,4 +1357,5 @@ public class UbuntuInstallService extends IntentService {
         VersionInfo.storeEmptyVersion(pref.edit(), PREF_KEY_DOWNLOADED_VERSION);
         return false;
     }
+
 }

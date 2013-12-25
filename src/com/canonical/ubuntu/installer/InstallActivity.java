@@ -114,18 +114,19 @@ public class InstallActivity extends Activity {
         }
         mObserversRegistered = false;
     }
-    
+
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.installer_menu, menu);
         return true;
     }
-    
+
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
             case R.id.action_delete_download:
+                // FIXME: This should keep user's data.
                 // also attempt to uninstall ubuntu, since there should be none anyway, keep user data
                 Intent action = new Intent(UbuntuInstallService.UNINSTALL_UBUNTU);
                 action.putExtra(UbuntuInstallService.UNINSTALL_UBUNTU_EXTRA_REMOVE_USER_DATA, false);
@@ -262,7 +263,7 @@ public class InstallActivity extends Activity {
         // reset progress bar
         mProgressBar.setProgress(0);
     }
-    
+
     TextPickerDialog.OnChannelPicktListener mInstallDialogListener 
                                 = new TextPickerDialog.OnChannelPicktListener() {
         public void onChannelPicked(Context context, String channel, boolean bootstrap, boolean latest) {
@@ -292,38 +293,38 @@ public class InstallActivity extends Activity {
     
     private void downloadVersion(final Context context, final String channel, final boolean bootstrap) {
         final ProgressDialog progress = ProgressDialog.show(this, 
-        "Fetching versions", 
-        "Checking list of availanble versions for choosen channel", true);
+                "Fetching versions", 
+                "Checking list of availanble versions for choosen channel", true);
         new Thread(new Runnable() {
             @Override
             public void run() {
                 String jsonStr = Utils.httpDownload(UbuntuInstallService.BASE_URL 
-                + mAvailableChannels.get(channel));
+                        + mAvailableChannels.get(channel));
                 // TODO: handle malformed JSON
                 final List<Image> releases = JsonChannelParser.getAvailableReleases(jsonStr, ReleaseType.FULL);
-                
+
                 runOnUiThread(new Runnable() {
-            @Override
+                    @Override
                     public void run() {
                         progress.dismiss();
                         // if there are available releases, show number picker
                         if (releases.size() != 0 && releases.get(0).files.length != 0) {
-                        int[] values = new int[releases.size()];
-                        for (int i = 0 ; i < values.length ; ++i) {
-                        values[i] = releases.get(i).version;
-                        }
-                        new NumberPickerDialog(context, 
-                        R.string.version_picker_dialog_title,
-                        R.string.action_install,
-                        R.string.cancel,
-                        values,
-                        0, 
-                        new NumberPickerDialog.OnNumberPicktListener() {
-        @Override
-        public void onNumberSelected(Context context, int value) {
-        startDownload(channel, bootstrap, value);
-        }
-        }).show();;
+                            int[] values = new int[releases.size()];
+                            for (int i = 0 ; i < values.length ; ++i) {
+                                values[i] = releases.get(i).version;
+                            }
+                            new NumberPickerDialog(context, 
+                                    R.string.version_picker_dialog_title,
+                                    R.string.action_install,
+                                    R.string.cancel,
+                                    values,
+                                    0, 
+                                    new NumberPickerDialog.OnNumberPicktListener() {
+                                @Override
+                                public void onNumberSelected(Context context, int value) {
+                                    startDownload(channel, bootstrap, value);
+                                }
+                            }).show();;
                         }                        
                     }
                 });

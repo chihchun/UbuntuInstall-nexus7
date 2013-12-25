@@ -16,7 +16,6 @@ import android.widget.TextView;
 
 import com.canonical.ubuntu.widget.UbuntuButton;
 
-
 public class LaunchActivity extends Activity {
     private static final String TAG = "UbuntuLaunchActivity";
     private UbuntuButton mRebootButton;
@@ -28,7 +27,7 @@ public class LaunchActivity extends Activity {
     private TextView mTextDescriptionLabel;
     private TextView mTextDescription;
     private VersionInfo mUbuntuVersion;
-    
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -48,8 +47,11 @@ public class LaunchActivity extends Activity {
         mTextTitle.setText(R.string.launch_title);
         mRebootButton.setText(R.string.reboot_button_label);
         fillInstalledVersionInfo();
+
+        // check the upgradeable image.
+        // startService(new Intent(UbuntuInstallService.UPGRADE_UBUNTU));
     }
-        
+
     @Override
     public void onResume() {
         super.onResume();
@@ -62,7 +64,7 @@ public class LaunchActivity extends Activity {
         filter.addAction(UbuntuInstallService.VERSION_UPDATE);
         registerReceiver(mServiceObserver, filter);
     }
-    
+
     @Override
     public void onPause() {
         super.onPause();
@@ -113,7 +115,19 @@ public class LaunchActivity extends Activity {
         }
         return super.onOptionsItemSelected(item);
     }
-    
+
+    /**
+     * Create a dialog for confirmation.
+     * @param title
+     * @param positiveButton
+     * @param negativeButton
+     * @param action
+     * @param toastText
+     * @param choiceItemsArray
+     * @param defaultChoiceValues
+     * @param choiceClickListener
+     * @return AlertDialog
+     */
     private AlertDialog createConfirmationDialog(final int title, 
                                          final int positiveButton, 
                                          final int negativeButton, 
@@ -151,7 +165,10 @@ public class LaunchActivity extends Activity {
         mTextVersionLabel.setText(R.string.label_version);
         mTextDescriptionLabel.setText(R.string.label_description);
     }
-    
+
+    /**
+     * Get installed version to check Ubuntu is installed
+     */
     private void ensureUbuntuIsInstalled() {
         VersionInfo v = UbuntuInstallService.getInstalledVersion(this.getApplicationContext());
         if (v == null) {

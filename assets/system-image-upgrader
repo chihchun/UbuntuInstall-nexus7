@@ -1,23 +1,24 @@
-#!/sbin/sh
+#!/system/bin/sh
+# Copyright (C) 2013 Canonical Ltd.
 
-export PATH=$PATH:${PWD}
-UPDATE_FOLDER=${PWD}
-PRIVATE_DIR=$2
-BUSYBOX=busybox
-TAR=u_tar
-set -e
+# $0 [ubuntu command file] [app/private folder]
 
 if [ ! -e "$1" ]; then
     echo "Command file doesn't exist: $1"
     exit 1
 fi
+
 mv $1 $1.applying
 COMMAND_FILE=$1.applying
-
 REMOVE_LIST="$COMMAND_FILE"
-
+UPDATE_FOLDER=${PWD}
+PRIVATE_DIR=$2
+BUSYBOX=busybox
+TAR=u_tar
 TMP=/cache/tmp
+export PATH=${PWD}:${PRIVATE_DIR}:$PATH
 
+set -e
 echo "Starting image upgrader: $(date)"
 
 # Functions
@@ -143,7 +144,7 @@ fi
 
 # Process the command file
 FULL_IMAGE=0
-echo "Processing the command file"
+echo "Processing the command file $COMMAND_FILE"
 while read line
 do
     set -- $line
