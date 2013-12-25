@@ -1163,8 +1163,8 @@ public class UbuntuInstallService extends IntentService {
      * @return
      */
     public static boolean isUpgradeable(Context c) {
-        SharedPreferences pref = c.getSharedPreferences(SHARED_PREF, Context.MODE_PRIVATE);
-        return (pref.getString(PREF_KEY_UPDATE_COMMAND, "") != "");
+        String cmd = c.getSharedPreferences(SHARED_PREF, Context.MODE_PRIVATE).getString(PREF_KEY_UPDATE_COMMAND, "");
+        return (cmd.startsWith("/cache/"));
     }
 
     /**
@@ -1186,7 +1186,7 @@ public class UbuntuInstallService extends IntentService {
                     // find the upgradeable file, stored into pref.
                     setUpdateCommand(cmd.getAbsolutePath());
 
-                    // FIXME we don't know what's the versoin in /cache.
+                    // FIXME we don't know what's the version in /cache.
                     SharedPreferences pref = getApplication().
                             getSharedPreferences(SHARED_PREF, Context.MODE_PRIVATE);
                     VersionInfo v = new VersionInfo(pref, PREF_KEY_INSTALLED_VERSION);
