@@ -25,6 +25,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.text.Html;
 import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
@@ -156,7 +158,13 @@ public class InstallActivity extends Activity {
 
                     dumpFile = new File(vSDCard + "/" + filename);
                     FileWriter dumpFileWriter = new FileWriter(dumpFile);
-                    dumpFileWriter.write("Device: " + android.os.Build.FINGERPRINT);
+                    dumpFileWriter.write("Device: " + android.os.Build.FINGERPRINT + "\n");
+
+                    Context context = this.getApplicationContext();
+                    PackageInfo pInfo = context.getPackageManager().getPackageInfo(context.getPackageName(), PackageManager.GET_META_DATA);
+                    String versionInfo = pInfo.versionName;
+                    dumpFileWriter.write("APK Version: " + versionInfo + "\n");
+
                     dumpFileWriter.write(terminalText.toString());
                     dumpFileWriter.close();
                     Utils.showToast(this.getApplicationContext(), getResources().getString(R.string.terminal_dump_succ) + ": " + dumpFile.getPath());
