@@ -407,7 +407,7 @@ public class InstallActivity extends Activity {
                 int progress = intent.getIntExtra(UbuntuInstallService.PROGRESS_EXTRA_INT, -1);
                 if (progress != -1) {
                     mProgressBar.setProgress(progress);
-                    Log.v(TAG, "Progress:" + progress);
+                    Log.d(TAG, "Progress: " + progress);
                 }
                 if (p != null  && !p.equals("")) {
                     // update terminal with progress text
@@ -441,7 +441,7 @@ public class InstallActivity extends Activity {
                     }
                     updateUiElements();
                 }
-                
+
             // Handle download result
             } else if(action.equals(UbuntuInstallService.DOWNLOAD_RESULT)) {
                 int r = intent.getIntExtra(UbuntuInstallService.DOWNLOAD_RESULT_EXTRA_INT, -1);

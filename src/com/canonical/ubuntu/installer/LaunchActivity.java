@@ -49,7 +49,7 @@ public class LaunchActivity extends Activity {
         fillInstalledVersionInfo();
 
         // check the upgradeable image.
-        // startService(new Intent(UbuntuInstallService.UPGRADE_UBUNTU));
+        startService(new Intent(UbuntuInstallService.UPGRADE_UBUNTU));
     }
 
     @Override

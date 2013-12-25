@@ -214,7 +214,16 @@ public class UbuntuInstallService extends IntentService {
         }
 
         public ESumNotMatchException(String string) {
-            // TODO Auto-generated constructor stub
+            super(string);
+        }
+    };
+
+    class EShellExecException extends Exception {
+        public EShellExecException(){
+            super();
+        }
+
+        public EShellExecException(String string) {
             super(string);
         }
     };
@@ -288,9 +297,8 @@ public class UbuntuInstallService extends IntentService {
         } else if (action.equals(UPGRADE_UBUNTU)) {
             // check if the upgradeable images available.
             if(isUpgradeable()) {
-                result = new Intent(VERSION_UPDATE);
-                // updateInstallerState(InstallerState.INSTALLING);
-                result = doInstallUbuntu(intent);
+                Log.d(TAG, "There is a upgradeable file.");
+                // result = new Intent(VERSION_UPDATE);
             }
         } else if (action.equals(CANCEL_INSTALL)) {
             // install should be already cancelled, try to delete it now
@@ -380,7 +388,7 @@ public class UbuntuInstallService extends IntentService {
         Intent result = new Intent(INSTALL_RESULT);
 
         // get update command file
-        String updateCommand = this.getUpdateCommand();
+        String updateCommand = getUpdateCommand();
         if (updateCommand.equals("") || ! new File(updateCommand).exists()) {
             return handleInstallFail(result, -1, "Missing update command");
         }
@@ -389,152 +397,55 @@ public class UbuntuInstallService extends IntentService {
         mTotalSize = pref.getInt(PREF_KEY_ESTIMATED_CHECKPOINTS, 0);
         mLastSignalledProgress = 0;
 
-        mWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ubuntu-installing");
-        try {
-            // can not assume update scripts are stored in same folder with image files.
-            // it can be upgraded from /cache/recovery, which is read only for stand-alone app.
-            String supportingFilesFolder = this.getFilesDir().getAbsolutePath();
-            String imagesfolder = new File(updateCommand).getParent();
-
-            broadcastProgress(0, "Extracting supporting files at " + supportingFilesFolder);
-            try {
-                // extract utils into working folder.
-                Utils.extractExecutableAsset(this, BUSYBOX, supportingFilesFolder, true);
-                Utils.extractExecutableAsset(this, ANDROID_BOOTMGR, supportingFilesFolder, true);
-                Utils.extractExecutableAsset(this, GPG, supportingFilesFolder, true);
-                Utils.extractExecutableAsset(this, TAR, supportingFilesFolder, true);
-                Utils.extractExecutableAsset(this, UPDATE_SCRIPT, supportingFilesFolder, true);
-                Utils.extractExecutableAsset(this, ANDROID_LOOP_MOUNT, supportingFilesFolder, true);
-                Utils.extractExecutableAsset(this, ARCHIVE_MASTER, supportingFilesFolder, false);
-                Utils.extractExecutableAsset(this, ARCHIVE_MASTER_ASC, supportingFilesFolder, false);
-                Utils.extractExecutableAsset(this, U_REBOOT_APP, supportingFilesFolder, false);
-                Utils.extractExecutableAsset(this, U_REBOOT_APP_ASC, supportingFilesFolder, false);
-            } catch (IOException e) {
-                e.printStackTrace();
-                return handleInstallFail(result, -1,
-                        String.format("Failed to extract supporting assets at %s: %s", supportingFilesFolder, e.getMessage()));
-            }
-
-            List<String> shellcmds = new ArrayList<String>();
-            {
-                shellcmds.add("echo \"SU granted\"");
-                // make sure we are in images folder
-                shellcmds.add(String.format("cd %s\n", imagesfolder));
-                // run system-image-upgrader.
-                shellcmds.add(String.format("sh %s/%s %s %s\n",
-                        supportingFilesFolder,
-                        UPDATE_SCRIPT,
-                        updateCommand,
-                        getFilesDir().getAbsolutePath()
-                        ));
-                // Only backup original recovery, when there is no backuped file.
-                if(!new File(getFilesDir().toString(), ANDROID_REOCVERY_IMG).exists()) {
-                    shellcmds.add(String.format("%s/%s -b %s %s/%s\n",
-                            supportingFilesFolder,
-                            ANDROID_BOOTMGR,
-                            Utils.getRecoveryPartitionPath(),
-                            getFilesDir().getAbsolutePath(),
-                            ANDROID_REOCVERY_IMG
-                            ));
-                }
-                // overwrite the recovery partition.
-                shellcmds.add(String.format("%s/%s -b %s/%s %s\n",
-                        supportingFilesFolder,
+        List<String> shellcmds = new ArrayList<String>();
+        {
+            shellcmds.add("echo Installing\n");
+            // run system-image-upgrader.
+            shellcmds.add(String.format("%s %s %s\n",
+                    UPDATE_SCRIPT,
+                    updateCommand,
+                    getFilesDir().getAbsolutePath()
+                    ));
+            // Only backup original recovery, when there is no backuped file.
+            if(!new File(getFilesDir().toString(), ANDROID_REOCVERY_IMG).exists()) {
+                shellcmds.add(String.format("%s -b %s %s/%s\n",
                         ANDROID_BOOTMGR,
+                        Utils.getRecoveryPartitionPath(),
                         getFilesDir().getAbsolutePath(),
-                        UBUNTU_BOOT_IMG,
-                        Utils.getRecoveryPartitionPath()
+                        ANDROID_REOCVERY_IMG
                         ));
-                shellcmds.add("exit");
             }
-
-            broadcastProgress(-1, "Starting update script - " + updateCommand);
-            try {
-                // get superuser and run update script
-                Process process = Runtime.getRuntime().exec("su", null);
-                DataOutputStream os = new DataOutputStream(process.getOutputStream());
-                // debug purpose.
-                // os.writeBytes("set -x\n");
-                for(String cmd: shellcmds) {
-                    Log.d(TAG, "exec " + cmd);
-                    os.writeBytes(cmd + "\n");
-                }
-                os.flush();
-                InputStream is = process.getInputStream();
-                InputStream es = process.getErrorStream();
-                int read = 0;
-                byte[] buff = new byte[4096];
-                boolean running = true;
-                boolean scriptExecuted = false;
-                do {
-                    while( is.available() > 0) {
-                        read = is.read(buff);
-                        if ( read <= 0 ) {
-                            break;
-                        }
-                        scriptExecuted = true;
-                        String seg = new String(buff,0,read);
-                        Log.d(TAG, "Script Output: " + seg);
-                        broadcastProgress(-1, seg);
-                    }
-                    while( es.available() > 0) {
-                        read = es.read(buff);
-                        if ( read <= 0 ) {
-                            break;
-                        }
-                        scriptExecuted = true;
-                        String seg = new String(buff,0,read);
-                        if (seg.startsWith("SWAP-file-missing")) {
-                            // this is signal that we will also install swap, adjust progress estimates
-                            mTotalSize += PROGRESS_MKSWAP_ADJUSTMENT + PROGRESS_SWAP_CREATION_ADJUSTMENT;
-                        } else {
-                            mProgress++;
-                            if ( mLastSignalledProgress < (mProgress * 100 / mTotalSize)) {
-                                // update and signal new progress
-                                mLastSignalledProgress = (int) (mProgress * 100 / mTotalSize);
-                                broadcastProgress(mLastSignalledProgress, null);
-                            }
-                        }
-                        Log.d(TAG, "Stderr Output: " + seg);
-                    }
-                    try {
-                        int ret = process.exitValue();
-                        Log.v(TAG, "Worker thread exited with: " + ret);
-                          // if script was not executed, then user did not granted SU permissions
-                        if (ret == 255 || !scriptExecuted ) {
-                            return handleInstallFail(result, -1, "Failed to get SU permissions");
-                        } else if (ret != 0) {
-                            return handleInstallFail(result, -1, "Installaction failed");
-                        }
-                        running = false;
-                    } catch (IllegalThreadStateException e) {
-                        // still running, wait a bit
-                        try { Thread.sleep(200); } catch(Exception ex) {}
-                    }
-                } while (running);
-            } catch (IOException e) {
-                e.printStackTrace();
-                Log.w(TAG, "Update failed");
-                return handleInstallFail(result, -1, "Install failed");
-            }
-        } finally {
-            if (mWakeLock != null && mWakeLock.isHeld()) {
-                mWakeLock.release();
-            }
+            // overwrite the recovery partition.
+            shellcmds.add(String.format("%s -b %s/%s %s\n",
+                    ANDROID_BOOTMGR,
+                    getFilesDir().getAbsolutePath(),
+                    UBUNTU_BOOT_IMG,
+                    Utils.getRecoveryPartitionPath()
+                    ));
+            shellcmds.add("exit");
         }
-        cleanUpdateCommand();
 
+        broadcastProgress(-1, "Starting update script - " + updateCommand);
+        try {
+            int ret = executeSUCommands(shellcmds.toArray(new String[shellcmds.size()]));
+            result.putExtra(INSTALL_RESULT_EXTRA_INT, ret);
+        } catch (EShellExecException e) {
+            return handleInstallFail(result, -1, e.getMessage());
+        }
+
+        // we done.
+        cleanUpdateCommand();
         VersionInfo v = new VersionInfo(pref, PREF_KEY_DOWNLOADED_VERSION);
         v.storeVersion(pref.edit(), PREF_KEY_INSTALLED_VERSION);
         mProgress = 100;
-        result.putExtra(INSTALL_RESULT_EXTRA_INT, 0);
         return result;
     }
-    
+
     private Intent handleInstallFail(Intent i, int res, String failReason) {
         i.putExtra(INSTALL_RESULT_EXTRA_INT, -1);
         i.putExtra(INSTALL_RESULT_EXTRA_STR, failReason);
-        doUninstallUbuntu(i);
+        // we don't want to unstainll if we failed to install a update.
+        // doUninstallUbuntu(i);
         return i;
     }
 
@@ -561,39 +472,53 @@ public class UbuntuInstallService extends IntentService {
         // 1. force unmount
         // 2. restore android recovery partition, and deleted it.
         // 3. delete system.img and SWAP.img.
-        int r = executeSUCommands(result, "result", new String[]{
-                format_cmd,
-                ("sh " + UPDATE_SCRIPT 
-                        + " " + updateCommand.getAbsolutePath() 
-                        + " " + getFilesDir().toString() + "\n"),
-                 String.format("./%s -b %s/%s %s\n",
-                         ANDROID_BOOTMGR,
-                         getFilesDir().toString(),
-                         ANDROID_REOCVERY_IMG,
-                          Utils.getRecoveryPartitionPath()),
-                 (String.format("rm -f %s/%s\n", getFilesDir().toString(), ANDROID_REOCVERY_IMG)),
-                 ("rm -rf /data/system.img\n"),
-                 ("rm -rf /data/SWAP.img\n"),
-        } );
-        if (r == 0) {
-            // delete installed version in preferences
-            this.cleanUpdateCommand();
-            VersionInfo.storeEmptyVersion(
-                    getSharedPreferences(SHARED_PREF, Context.MODE_PRIVATE).edit(), PREF_KEY_INSTALLED_VERSION);
+        try {
+            int r = executeSUCommands(
+                    new String[]{
+                        ("echo Uninstalling\n"),
+                        format_cmd,
+                        ("sh " + UPDATE_SCRIPT 
+                            + " " + updateCommand.getAbsolutePath() 
+                            + " " + getFilesDir().toString() + "\n"),
+                            String.format("%s -b %s/%s %s || true\n",
+                                    ANDROID_BOOTMGR,
+                                    getFilesDir().toString(),
+                                    ANDROID_REOCVERY_IMG,
+                                    Utils.getRecoveryPartitionPath()),
+                            (String.format("rm -f %s/%s  || true\n", getFilesDir().toString(), ANDROID_REOCVERY_IMG)),
+                            ("rm -rf /data/system.img || true\n"),
+                            ("rm -rf /data/SWAP.img || true\n"),
+            } );
+
+            if (r == 0) {
+                // delete installed version in preferences
+                cleanUpdateCommand();
+                VersionInfo.storeEmptyVersion(
+                        getSharedPreferences(SHARED_PREF, Context.MODE_PRIVATE).edit(), PREF_KEY_INSTALLED_VERSION);
+            }
+            result.putExtra("result", r);
+        } catch (EShellExecException e) {
+            result.putExtra("result", -1);
         }
-        result.putExtra("result", r);
+
         return result;
     }
 
     private Intent doDeleteUbuntuUserData(Intent intent) {
         Intent result = new Intent(VERSION_UPDATE);
         File workingFolder = new File(mRootOfWorkPath, TEMP_FOLDER);
-        File updateCommand = new File(workingFolder, UPDATE_COMMAND);        
-        int r = executeSUCommands(result, "fail_description", new String[]{
+        File updateCommand = new File(workingFolder, UPDATE_COMMAND);
+
+        try {
+            int r = executeSUCommands(new String[]{
                 String.format("echo \"%s %s\" > %s\n", COMMAND_FORMAT, PARTITION_DATA, UPDATE_COMMAND),
                 ("sh " + UPDATE_SCRIPT + " " + updateCommand.getAbsolutePath() + " " + getFilesDir().toString() + "\n")
-        } );
-        result.putExtra("result", r);
+            } );
+            result.putExtra("result", r);
+        } catch (EShellExecException e) {
+            result.putExtra("fail_description", e.getMessage());
+            result.putExtra("result", -1);
+        }
         return result;
     }
 
@@ -606,74 +531,83 @@ public class UbuntuInstallService extends IntentService {
             // FIXME: in Android 4.4, we do not get power manager permission.
             // try it with SU permissions
             try {
-                Process process = Runtime.getRuntime().exec("su", null, getFilesDir());
-                DataOutputStream os = new DataOutputStream(process.getOutputStream());
-                
-                Utils.extractExecutableAsset(this, ANDROID_BOOTMGR, getFilesDir().toString(), true);
-                // overwrite the recovery partition.
-                os.writeBytes(String.format("%s/%s -b %s/%s %s\n",
-                        getFilesDir().getAbsolutePath(),
-                        ANDROID_BOOTMGR,
-                        getFilesDir().getAbsolutePath(),
-                        UBUNTU_BOOT_IMG,
-                        Utils.getRecoveryPartitionPath()
-                        ));
-                os.writeBytes("reboot recovery\n");
-                os.flush();
-                try {
-                    process.waitFor();
-                    if (process.exitValue() != 255) {
-                        Utils.showToast(this.getApplicationContext(), "Rebooting to Ubuntu");
-                    } else {
-                        Utils.showToast(this.getApplicationContext(),  "No permissions to reboot to recovery");
-                    }
-                } catch (InterruptedException ee) {
-                    Utils.showToast(this.getApplicationContext(), "No permissions to reboot to recovery");
+                int r = executeSUCommands(new String[] {
+                        String.format("%s -b %s/%s %s || true\n",
+                                ANDROID_BOOTMGR,
+                                getFilesDir().getAbsolutePath(),
+                                UBUNTU_BOOT_IMG,
+                                Utils.getRecoveryPartitionPath()),
+                        "reboot recovery\n"
+                });
+                if(r != 255) {
+                    Utils.showToast(this.getApplicationContext(), "Rebooting to Ubuntu");
+                } else {
+                    Utils.showToast(this.getApplicationContext(),  "No permissions to reboot to recovery");
                 }
-            } catch (IOException eee) {
-                Utils.showToast(this.getApplicationContext(), "No permissions to reboot to recovery");
+            } catch (EShellExecException e1) {
+                Utils.showToast(this.getApplicationContext(),  "No permissions to reboot to recovery");
             }
         }
     }
 
     /**
-     * @param result intent to update with result text
-     * @param resultExtraText 
-     * @param commands commands to execute
-     * @return 0 for success and -1 for fail
+     * This command exec commands in the working folder with supporting utils.
+     *
+     * @param commands commands to be executed
+     * @return shell script exit value.
+     * @throws EShellExecException
      */
-    private int executeSUCommands(Intent result, String resultExtraText, String[] commands) {
+    private int executeSUCommands(String[] commands) throws EShellExecException {
+        int ret = 0;
         File rootFolder = new File(mRootOfWorkPath);
         File workingFolder = new File(rootFolder, TEMP_FOLDER);
+        String workingFolderPath = workingFolder.getAbsolutePath();
+
         if (!workingFolder.exists() && !workingFolder.mkdir()) {
-            result.putExtra(resultExtraText, "Failed to create working folder");
-            return -1;
-        }
-        try {
-            Utils.extractExecutableAsset(this, UPDATE_SCRIPT, workingFolder.toString(), true);
-            Utils.extractExecutableAsset(this, ANDROID_LOOP_MOUNT, workingFolder.toString(), true);
-            Utils.extractExecutableAsset(this, ANDROID_BOOTMGR, workingFolder.toString(), true);
-        } catch (IOException e) {
-            e.printStackTrace();
-            result.putExtra(resultExtraText, "Failed to extract supporting files");
-            return -1;
+            throw(new EShellExecException("Failed to create working folder"));
         }
 
-        mWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ubuntu-installing");
+        broadcastProgress(0, "Extracting supporting files at " + workingFolder.getAbsolutePath());
+        try {
+            // extract utils into working folder.
+            Utils.extractExecutableAsset(this, ANDROID_BOOTMGR, workingFolderPath, true);
+            Utils.extractExecutableAsset(this, ANDROID_LOOP_MOUNT, workingFolderPath, true);
+            Utils.extractExecutableAsset(this, ARCHIVE_MASTER_ASC, workingFolderPath, false);
+            Utils.extractExecutableAsset(this, ARCHIVE_MASTER, workingFolderPath, false);
+            Utils.extractExecutableAsset(this, BUSYBOX, workingFolderPath, true);
+            Utils.extractExecutableAsset(this, GPG, workingFolderPath, true);
+            Utils.extractExecutableAsset(this, TAR, workingFolderPath, true);
+            Utils.extractExecutableAsset(this, UPDATE_SCRIPT, workingFolderPath, true);
+            Utils.extractExecutableAsset(this, U_REBOOT_APP_ASC, workingFolderPath, false);
+            Utils.extractExecutableAsset(this, U_REBOOT_APP, workingFolderPath, false);
+            Utils.extractExecutableAsset(this, UPGRADECHECKER, workingFolderPath, true);
+        } catch (IOException e) {
+            throw(new EShellExecException("Failed to extract supporting utils"));
+        }
+
+        mWakeLock = mPowerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "shelling");
         try {
             Process process = Runtime.getRuntime().exec("su", null, workingFolder);
             DataOutputStream os = new DataOutputStream(process.getOutputStream());
-            // make sure we are in work folder
+            // debug purpose.
+            os.writeBytes("set -x\n");
+
             os.writeBytes("echo \"SU granted\"\n");
-            for (String c : commands) {
-                Log.v(TAG, "Executing:" + c);
-                // make sure we are always at working folder before running next command
-                os.writeBytes(String.format("cd %s\n", workingFolder.getAbsolutePath()));
-                os.writeBytes(c);
+            // make sure we are in work folder
+            os.writeBytes(String.format("cd %s\n", workingFolder.getAbsolutePath()));
+            // setup search path for commands
+            os.writeBytes(String.format("export PATH=%s:$PATH\n", workingFolder.getAbsolutePath()));
+
+            for (String cmd : commands) {
+                Log.d(TAG, "Executing: " + cmd + "\n");
+                os.writeBytes(cmd + "\n");
+                os.writeBytes("CMDSTATES=$?\n");
             }
+            // clean up supporting utils.
             os.writeBytes(String.format("rm -rf %s\n", workingFolder.getAbsolutePath()));
-            os.writeBytes("exit\n");
+            os.writeBytes("exit $CMDSTATES\n");
             os.flush();
+
             int read = 0;
             byte[] buff = new byte[4096];
             InputStream is = process.getInputStream();
@@ -687,7 +621,7 @@ public class UbuntuInstallService extends IntentService {
                         break;
                     }
                     scriptExecuted = true;
-                    String seg = new String(buff,0,read);
+                    String seg = new String(buff, 0, read);
                     Log.i(TAG, "Script Output: " + seg);
                     broadcastProgress(-1, seg);
                 }
@@ -698,35 +632,42 @@ public class UbuntuInstallService extends IntentService {
                     }
                     scriptExecuted = true;
                     String seg = new String(buff,0,read);
+                    
+                    if (seg.startsWith("SWAP-file-missing")) {
+                        // this is signal that we will also install swap, adjust progress estimates
+                        mTotalSize += PROGRESS_MKSWAP_ADJUSTMENT + PROGRESS_SWAP_CREATION_ADJUSTMENT;
+                    } else {
+                        mProgress++;
+                        if (mTotalSize > 0 && mLastSignalledProgress < (mProgress * 100 / mTotalSize)) {
+                            // update and signal new progress
+                            mLastSignalledProgress = (int) (mProgress * 100 / mTotalSize);
+                            broadcastProgress(mLastSignalledProgress, null);
+                        }
+                    }
+
                     Log.i(TAG, "Stderr Output: " + seg);
                 }
                 try {
-                    int ret = process.exitValue();
-                    Log.v(TAG, "Worker thread exited with: " + ret);
+                    ret = process.exitValue();
+                    Log.d(TAG, "Worker thread exited with: " + ret);
                     // if script was not executed, then user did not granted SU permissions
-                    if (ret == 255 || !scriptExecuted ) {
-                        result.putExtra(resultExtraText, "Failed to get SU permissions");
-                        return -1;
-                    } else if (ret != 0) {
-                        result.putExtra(resultExtraText, "Script failed");
-                        return -1;                    
+                    if (!scriptExecuted) {
+                        throw new EShellExecException("Failed to get SU permissions");
                     }
-                    running =false;
+                    running = false;
                 } catch (IllegalThreadStateException e) {
                     // still running, wait a bit
                     try { Thread.sleep(200); } catch(Exception ex) {}
                 }
             } while (running);
         } catch (IOException e) {
-            e.printStackTrace();
-            result.putExtra(resultExtraText, "Script execution exception");
-            return -1;
+            throw(new EShellExecException("Script execution exception " + e.getMessage()));
         } finally {
             if (mWakeLock != null && mWakeLock.isHeld()) {
                 mWakeLock.release();
             }
         }
-        return 0;
+        return ret;
     }
 
     private Intent doDownloadRelease(Intent intent) {
@@ -1100,6 +1041,21 @@ public class UbuntuInstallService extends IntentService {
         return fileName;
     }
 
+
+    private static  boolean deleteDirectory(File path) {
+        if( path.exists() ) {
+            File[] files = path.listFiles();
+            for(int i=0; i<files.length; i++) {
+                if(files[i].isDirectory()) {
+                    deleteDirectory(files[i]);
+                } else {
+                    files[i].delete();
+                }
+            }
+        }
+        return( path.delete() );
+    }
+
     /**
      * @return null if success or error
      */
@@ -1108,26 +1064,9 @@ public class UbuntuInstallService extends IntentService {
         File rootFolder = new File(mRootOfWorkPath);
         File release = new File(rootFolder, RELEASE_FOLDER);
         if (release.exists()) {
-            try {
-                String command = "rm -rf " + release.getAbsolutePath();
-                Process p = Runtime.getRuntime().exec(command , null, rootFolder);
-                try {   
-                    p.waitFor();
-                    int r = p.exitValue();
-                    if (r == 255) {
-                        return "failed to remove old download";
-                    } 
-                } catch (InterruptedException e) {
-                    // FIXME: throw an exception?
-                    Log.w(TAG, "failed to remove old download");
-                }   
-            }catch (IOException e) {
-                e.printStackTrace();
-                Log.w(TAG, "failed to remove old download");
-                return "failed to remove old download";
-            }
+            deleteDirectory(release);
             // cleanup update command
-            this.cleanUpdateCommand();
+            cleanUpdateCommand();
             // clean up version number.
             VersionInfo.storeEmptyVersion(getSharedPreferences(SHARED_PREF, Context.MODE_PRIVATE).edit(), PREF_KEY_DOWNLOADED_VERSION);
         }
@@ -1145,15 +1084,6 @@ public class UbuntuInstallService extends IntentService {
         Intent i = new Intent(SERVICE_STATE);
         i.putExtra(SERVICE_STATE, mInstallerState.ordinal());
         sendBroadcast(i);        
-    }
-    
-    private void broadcastProgress(int val, String progress) {
-        Intent i = new Intent(PROGRESS);
-        i.putExtra(PROGRESS_EXTRA_INT, val);
-        if (progress!= null) {
-            i.putExtra(PROGRESS_EXTRA_TEXT, progress);
-        }
-        sendBroadcast(i);
     }
 
     /**
@@ -1231,12 +1161,13 @@ public class UbuntuInstallService extends IntentService {
      * @return if there is upgradeable images stored in /cache.
      */
     private boolean isUpgradeable() {
+        String[] candidates = {
+                "/cache/recovery/ubuntu_command",
+                "/cache/ubunturecovery/ubuntu_command",
+        };
+
         if(new File("/cache").canRead()) {
             // This only works in ROM.
-            String[] candidates = {
-                    "/cache/recovery/ubuntu_command",
-                    "/cache/ubunturecovery/ubuntu_command",
-            };
             for(String command: candidates) {
                 File cmd = new File(command);
                 if(cmd.exists() && cmd.isFile()) {
@@ -1253,54 +1184,20 @@ public class UbuntuInstallService extends IntentService {
             if (!workingFolder.exists() && !workingFolder.mkdir()) {
                 return false;
             }
-            // utils we need.
             try {
-                Utils.extractExecutableAsset(this, UPGRADECHECKER, workingFolder.toString(), true);
-            } catch (IOException e) {
-                e.printStackTrace();
+                for(String c: candidates) {
+                    int ret = executeSUCommands(new String[] {
+                       String.format("%s %s\n", UPGRADECHECKER, c),
+                    });
+                    if(ret == 1) {
+                        Log.d(TAG, "Found upgradeable file - " + c);
+                        setUpdateCommand(c);
+                        return true;
+                    }
+                }
+            } catch (EShellExecException e) {
                 return false;
             }
-
-            try {
-                Process process = Runtime.getRuntime().exec("su", null, workingFolder);
-                DataOutputStream os = new DataOutputStream(process.getOutputStream());
-                // make sure we are in work folder
-                os.writeBytes(String.format("cd %s\n", workingFolder.getAbsolutePath()));
-                os.writeBytes(String.format("sh %s\n", UPGRADECHECKER));
-                // clean up temp folder
-                os.writeBytes(String.format("rm -rf %s\n", workingFolder.getAbsolutePath()));
-                os.writeBytes("exit\n");
-                os.flush();
-
-                InputStream is = process.getInputStream();
-                byte[] buff = new byte[4096];
-                String cmd = "";
-                do {
-                    while( is.available() > 0) {
-                        int read = is.read(buff);
-                        if ( read <= 0 ) {
-                            break;
-                        }
-                        cmd = new String(buff, 0, read);
-                        Log.d(TAG, "Script Output: " + cmd);
-                    }
-                    try {
-                        int ret = process.exitValue();
-                        Log.d(TAG, "Worker thread exited with: " + ret);
-                        break;
-                    } catch (IllegalThreadStateException e) {
-                        // still running, wait a bit
-                        try { Thread.sleep(200); } catch(Exception ex) {}
-                    }
-                } while (true);
-                // setUpdateCommand(cmd);
-            } catch (IOException e) {
-                e.printStackTrace();
-                return false;
-            } finally {
-                workingFolder.delete();
-            }
-            return true;
         }
         return false;
     }
@@ -1329,6 +1226,15 @@ public class UbuntuInstallService extends IntentService {
      */
     private void cleanUpdateCommand() {
         this.setUpdateCommand("");
+    }
+    
+    private void broadcastProgress(int val, String progress) {
+        Intent i = new Intent(PROGRESS);
+        i.putExtra(PROGRESS_EXTRA_INT, val);
+        if (progress!= null) {
+            i.putExtra(PROGRESS_EXTRA_TEXT, progress);
+        }
+        sendBroadcast(i);
     }
 
     /**
