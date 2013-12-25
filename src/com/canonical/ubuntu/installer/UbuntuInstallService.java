@@ -1185,6 +1185,12 @@ public class UbuntuInstallService extends IntentService {
                     Log.d(TAG, "Found upgrade command - " + cmd.getAbsoluteFile().toString());
                     // find the upgradeable file, stored into pref.
                     setUpdateCommand(cmd.getAbsolutePath());
+
+                    // FIXME we don't know what's the versoin in /cache.
+                    SharedPreferences pref = getApplication().
+                            getSharedPreferences(SHARED_PREF, Context.MODE_PRIVATE);
+                    VersionInfo v = new VersionInfo(pref, PREF_KEY_INSTALLED_VERSION);
+                    v.storeVersion(pref.edit(), PREF_KEY_DOWNLOADED_VERSION);
                     return true;
                 }
             }
