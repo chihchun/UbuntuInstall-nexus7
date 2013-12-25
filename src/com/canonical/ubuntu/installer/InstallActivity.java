@@ -147,7 +147,7 @@ public class InstallActivity extends Activity {
                 File dumpFile = null;
                 try {
                     File vSDCard;
-                    if( Environment.getExternalStorageState().equals(Environment.MEDIA_REMOVED) ) {
+                    if(Environment.getExternalStorageState().equals(Environment.MEDIA_REMOVED)) {
                         Utils.showToast(this.getApplicationContext(), R.string.external_storage_unavailable);
                         break;
                     } else {
@@ -156,6 +156,7 @@ public class InstallActivity extends Activity {
 
                     dumpFile = new File(vSDCard + "/" + filename);
                     FileWriter dumpFileWriter = new FileWriter(dumpFile);
+                    dumpFileWriter.write("Device: " + android.os.Build.FINGERPRINT);
                     dumpFileWriter.write(terminalText.toString());
                     dumpFileWriter.close();
                     Utils.showToast(this.getApplicationContext(), getResources().getString(R.string.terminal_dump_succ) + ": " + dumpFile.getPath());
