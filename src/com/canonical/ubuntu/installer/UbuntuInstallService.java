@@ -1176,47 +1176,46 @@ public class UbuntuInstallService extends IntentService {
                 "/cache/recovery/ubuntu_command",
                 "/cache/ubunturecovery/ubuntu_command",
         };
-
-        if(new File("/cache").canRead()) {
-            // This only works in ROM.
-            for(String command: candidates) {
+        boolean ret = false;
+        for(String command: candidates) {
+            if(new File("/cache").canRead()) {
+                // if we have permission, we can read /cache.
                 File cmd = new File(command);
                 if(cmd.exists() && cmd.isFile()) {
                     Log.d(TAG, "Found upgrade command - " + cmd.getAbsoluteFile().toString());
                     // find the upgradeable file, stored into pref.
                     setUpdateCommand(cmd.getAbsolutePath());
-
-                    // FIXME we don't know what's the version in /cache.
-                    SharedPreferences pref = getApplication().
-                            getSharedPreferences(SHARED_PREF, Context.MODE_PRIVATE);
-                    VersionInfo v = new VersionInfo(pref, PREF_KEY_INSTALLED_VERSION);
-                    v.storeVersion(pref.edit(), PREF_KEY_DOWNLOADED_VERSION);
-                    return true;
+                    ret = true;
                 }
-            }
-        } else {
-            // this apk is not installed in ROM, nor have system key signed.
-            // will prompt a dialog for su command
-            File workingFolder = new File(mRootOfWorkPath + "/" + TEMP_FOLDER);
-            if (!workingFolder.exists() && !workingFolder.mkdir()) {
-                return false;
-            }
-            try {
-                for(String c: candidates) {
-                    int ret = executeSUCommands(new String[] {
-                       String.format("%s %s\n", UPGRADECHECKER, c),
+            } else {
+                // check the file with su
+                File workingFolder = new File(mRootOfWorkPath + "/" + TEMP_FOLDER);
+                if (!workingFolder.exists() && !workingFolder.mkdir()) {
+                    Log.e(TAG, "can not create working folder");
+                    ret = false;
+                }
+                try {
+                    int r = executeSUCommands(new String[] {
+                            String.format("%s %s\n", UPGRADECHECKER, command),
                     });
-                    if(ret == 1) {
-                        Log.d(TAG, "Found upgradeable file - " + c);
-                        setUpdateCommand(c);
-                        return true;
+                    if(r == 1) {
+                        Log.d(TAG, "Found upgradeable file - " + command);
+                        setUpdateCommand(command);
+                        ret = true;
                     }
+                } catch (EShellExecException e) {
+                    ret = false;
                 }
-            } catch (EShellExecException e) {
-                return false;
             }
         }
-        return false;
+        if(ret) {
+            // FIXME we don't know what's the version in /cache.
+            SharedPreferences pref = getApplication().
+                    getSharedPreferences(SHARED_PREF, Context.MODE_PRIVATE);
+            VersionInfo v = new VersionInfo(pref, PREF_KEY_INSTALLED_VERSION);
+            v.storeVersion(pref.edit(), PREF_KEY_DOWNLOADED_VERSION);
+        }
+        return ret;
     }
 
     /**
@@ -1281,5 +1280,4 @@ public class UbuntuInstallService extends IntentService {
         VersionInfo.storeEmptyVersion(pref.edit(), PREF_KEY_DOWNLOADED_VERSION);
         return false;
     }
-
 }
