@@ -8,6 +8,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -194,6 +195,11 @@ public class LaunchActivity extends Activity {
             String action = intent.getAction();
             if (action.equals(UbuntuInstallService.VERSION_UPDATE)) {
                 ensureUbuntuIsInstalled();
+                if(UbuntuInstallService.isUpgradeable(getApplicationContext())) {
+                    Log.d(TAG, "Found upgradeable file, kill LaunchActivity");
+                    InstallActivity.startFrom(context);
+                    finish();
+                }
             }
         }
     };

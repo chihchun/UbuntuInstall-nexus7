@@ -296,9 +296,9 @@ public class UbuntuInstallService extends IntentService {
             result = doInstallUbuntu(intent);
         } else if (action.equals(UPGRADE_UBUNTU)) {
             // check if the upgradeable images available.
-            if(isUpgradeable()) {
-                Log.d(TAG, "There is a upgradeable file.");
-                // result = new Intent(VERSION_UPDATE);
+            if(findUpgradeable()) {
+                Log.d(TAG, "There is a upgradeable file. send VERSION_UPDATE");
+                result = new Intent(VERSION_UPDATE);
             }
         } else if (action.equals(CANCEL_INSTALL)) {
             // install should be already cancelled, try to delete it now
@@ -389,7 +389,7 @@ public class UbuntuInstallService extends IntentService {
 
         // get update command file
         String updateCommand = getUpdateCommand();
-        if (updateCommand.equals("") || ! new File(updateCommand).exists()) {
+        if (updateCommand.equals("") || (!new File(updateCommand).exists() && !updateCommand.startsWith("/cache"))) {
             return handleInstallFail(result, -1, "Missing update command");
         }
 
@@ -1146,7 +1146,7 @@ public class UbuntuInstallService extends IntentService {
     public static VersionInfo getInstalledVersion(Context c) {
         return getVersionWithPrefKey(c, PREF_KEY_INSTALLED_VERSION);
     }
-
+ 
     public static boolean isUbuntuInstalled(Context c) {
         SharedPreferences pref = c.getSharedPreferences(SHARED_PREF, Context.MODE_PRIVATE);
         if (VersionInfo.hasValidVersion(pref, PREF_KEY_INSTALLED_VERSION)) {
@@ -1157,10 +1157,21 @@ public class UbuntuInstallService extends IntentService {
     }
 
     /**
+     *  check if update_command available for upgrade.
+     *
+     * @param c
+     * @return
+     */
+    public static boolean isUpgradeable(Context c) {
+        SharedPreferences pref = c.getSharedPreferences(SHARED_PREF, Context.MODE_PRIVATE);
+        return (pref.getString(PREF_KEY_UPDATE_COMMAND, "") != "");
+    }
+
+    /**
      * check if recovery command is exist on the system.
      * @return if there is upgradeable images stored in /cache.
      */
-    private boolean isUpgradeable() {
+    public boolean findUpgradeable() {
         String[] candidates = {
                 "/cache/recovery/ubuntu_command",
                 "/cache/ubunturecovery/ubuntu_command",
@@ -1180,7 +1191,7 @@ public class UbuntuInstallService extends IntentService {
         } else {
             // this apk is not installed in ROM, nor have system key signed.
             // will prompt a dialog for su command
-            File workingFolder = new File(this.mRootOfWorkPath + "/" + TEMP_FOLDER);
+            File workingFolder = new File(mRootOfWorkPath + "/" + TEMP_FOLDER);
             if (!workingFolder.exists() && !workingFolder.mkdir()) {
                 return false;
             }
@@ -1250,9 +1261,10 @@ public class UbuntuInstallService extends IntentService {
         if (versionInfo.getDownloadedSize() != 0) return false;
         
         String command = pref.getString(PREF_KEY_UPDATE_COMMAND, "");
+        Log.d(TAG, "checkifReadyToInstall");
         if (!command.equals("")) {
-            File f = new File(command);
-            if (f.exists()) {
+            if (new File(command).exists() || command.startsWith("/cache")) {
+                Log.d(TAG, "checkifReadyToInstall - found command file " + command);
                 return true;
             } else {
                 pref.edit().putString(PREF_KEY_UPDATE_COMMAND, "").commit();

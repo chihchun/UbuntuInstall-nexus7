@@ -184,11 +184,13 @@ public class InstallActivity extends Activity {
     }
 
     private void checkIfUbuntuIsInstalled() {
-        // check is there is Ubuntu installed
-        if (UbuntuInstallService.isUbuntuInstalled(this.getApplicationContext())) {
-            // go to launch screen, and kill this activity.
-            LaunchActivity.startFrom(this);
-            finish();
+        // check is there is Ubuntu installed or is upgradeable
+        if (UbuntuInstallService.isUbuntuInstalled(getApplicationContext())) {
+            if(!UbuntuInstallService.isUpgradeable(getApplicationContext())) {
+                Log.d(TAG, "go to launch screen, and kill Install activity");
+                LaunchActivity.startFrom(this);
+                finish();
+            }
         }
     }
 
@@ -360,7 +362,7 @@ public class InstallActivity extends Activity {
                             mProgressText.setText("");
                         }
                     }
-                        break;
+                    break;
                     case FETCHING_CHANNELS:
                         mInstallButton.setText(Html.fromHtml(getResources().getString(R.string.install_button_label_fetching)));
                         mInstallButton.setEnabled(false);
