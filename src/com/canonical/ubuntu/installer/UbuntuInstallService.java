@@ -296,7 +296,7 @@ public class UbuntuInstallService extends IntentService {
             result = doInstallUbuntu(intent);
         } else if (action.equals(IS_UBUNTU_UPGRADABLE)) {
             // check if the upgradeable images available.
-            if(findUpgradeable()) {
+            if(findInstallCommand()) {
                 Log.d(TAG, "There is a upgradeable file. send VERSION_UPDATE");
                 result = new Intent(VERSION_UPDATE);
             }
@@ -1182,7 +1182,7 @@ public class UbuntuInstallService extends IntentService {
      *
      * @return if there is upgradeable images stored in /cache.
      */
-    public boolean findUpgradeable() {
+    public boolean findInstallCommand () {
         String[] candidates = {
                 "/cache/recovery/ubuntu_command",
                 "/cache/ubunturecovery/ubuntu_command",
@@ -1221,8 +1221,7 @@ public class UbuntuInstallService extends IntentService {
         }
         if(ret) {
             // FIXME we don't know what's the version in /cache.
-            SharedPreferences pref = getApplication().
-                    getSharedPreferences(SHARED_PREF, Context.MODE_PRIVATE);
+            SharedPreferences pref = getSharedPreferences(SHARED_PREF, Context.MODE_PRIVATE);
             VersionInfo v = new VersionInfo(pref, PREF_KEY_INSTALLED_VERSION);
             v.storeVersion(pref.edit(), PREF_KEY_DOWNLOADED_VERSION);
         }
