@@ -126,7 +126,6 @@ public class InstallActivity extends Activity {
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
             case R.id.action_delete_download:
-                // FIXME: This should keep user's data.
                 // also attempt to uninstall ubuntu, since there should be none anyway, keep user data
                 Intent action = new Intent(UbuntuInstallService.UNINSTALL_UBUNTU);
                 action.putExtra(UbuntuInstallService.UNINSTALL_UBUNTU_EXTRA_REMOVE_USER_DATA, false);
