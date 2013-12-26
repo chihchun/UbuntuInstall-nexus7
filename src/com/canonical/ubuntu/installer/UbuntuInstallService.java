@@ -389,7 +389,13 @@ public class UbuntuInstallService extends IntentService {
 
         // get update command file
         String updateCommand = getUpdateCommand();
-        if (updateCommand.equals("") || (!new File(updateCommand).exists() && !updateCommand.startsWith("/cache"))) {
+
+        // 1. check if update command exist.
+        // 2. However, if the udpate command is in "/cache",
+        // the app can not access to /cache sometimes.
+        if (updateCommand.equals("") ||
+                (!new File(updateCommand).exists() &&
+                 !updateCommand.startsWith("/cache"))) {
             return handleInstallFail(result, -1, "Missing update command");
         }
 
