@@ -8,9 +8,6 @@ if [ ! -e "$1" ]; then
     exit 1
 fi
 
-# switch to the update command folder, which has the images
-cd `busybox dirname $1`
-mv $1 $1.applying
 COMMAND_FILE=$1.applying
 REMOVE_LIST="$COMMAND_FILE"
 UPDATE_FOLDER=${PWD}
@@ -22,6 +19,11 @@ export PATH=${PWD}:${PRIVATE_DIR}:$PATH
 
 set -e
 echo "Starting image upgrader: $(date)"
+
+# switch to the update command folder, which has the images
+cd `$BUSYBOX dirname $1`
+mv $1 $1.applying
+
 
 # Functions
 verify_signature() {
