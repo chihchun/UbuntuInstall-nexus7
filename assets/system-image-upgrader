@@ -8,20 +8,20 @@ if [ ! -e "$1" ]; then
     exit 1
 fi
 
-COMMAND_FILE=$1.applying
-REMOVE_LIST="$COMMAND_FILE"
-UPDATE_FOLDER=${PWD}
-PRIVATE_DIR=$2
 BUSYBOX=busybox
+COMMAND_FILE=$1.applying
+PRIVATE_DIR=$2
+REMOVE_LIST="$COMMAND_FILE"
 TAR=u_tar
 TMP=/cache/tmp
-export PATH=${PWD}:${PRIVATE_DIR}:$PATH
+UPDATE_FOLDER=`$BUSYBOX dirname $1`
+export PATH=${UPDATE_FOLDER}:${PRIVATE_DIR}:$PATH
 
 set -e
 echo "Starting image upgrader: $(date)"
 
 # switch to the update command folder, which has the images
-cd `$BUSYBOX dirname $1`
+cd $UPDATE_FOLDER
 mv $1 $1.applying
 
 
