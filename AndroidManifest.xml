@@ -62,7 +62,7 @@
                 <action android:name="com.canonical.ubuntuinstaller.UbuntuInstallService.GET_SERVICE_STATE" />
                 <action android:name="com.canonical.ubuntuinstaller.UbuntuInstallService.GET_PROGRESS_STATUS" />
                 <action android:name="com.canonical.ubuntuinstaller.UbuntuInstallService.REBOOT_UBUNTU" />
-                <action android:name="com.canonical.ubuntuinstaller.UbuntuInstallService.UPGRADE_UBUNTU" />
+                <action android:name="com.canonical.ubuntuinstaller.UbuntuInstallService.IS_UBUNTU_UPGRADABLE" />
             </intent-filter>
         </service>
     </application>

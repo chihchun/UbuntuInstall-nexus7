@@ -91,7 +91,7 @@ public class UbuntuInstallService extends IntentService {
     public static final String INSTALL_UBUNTU = "com.canonical.ubuntuinstaller.UbuntuInstallService.INSTALL_UBUNTU";
     public static final String CANCEL_INSTALL = "com.canonical.ubuntuinstaller.UbuntuInstallService.CANCEL_INSTALL";
     public static final String UNINSTALL_UBUNTU = "com.canonical.ubuntuinstaller.UbuntuInstallService.UINSTALL_UBUNTU";
-    public static final String UPGRADE_UBUNTU = "com.canonical.ubuntuinstaller.UbuntuInstallService.UPGRADE_UBUNTU";
+    public static final String IS_UBUNTU_UPGRADABLE = "com.canonical.ubuntuinstaller.UbuntuInstallService.IS_UBUNTU_UPGRADABLE";
     public static final String UNINSTALL_UBUNTU_EXTRA_REMOVE_USER_DATA = "user_data";
     public static final String CHECK_FOR_UPDATE = "com.canonical.ubuntuinstaller.UbuntuInstallService.CHECK_FOR_UPDATE";
     public static final String DELETE_UBUNTU_USER_DATA = "com.canonical.ubuntuinstaller.UbuntuInstallService.DELETE_USER_DATA";
@@ -294,7 +294,7 @@ public class UbuntuInstallService extends IntentService {
         } else if (action.equals(INSTALL_UBUNTU)) {
             updateInstallerState(InstallerState.INSTALLING);
             result = doInstallUbuntu(intent);
-        } else if (action.equals(UPGRADE_UBUNTU)) {
+        } else if (action.equals(IS_UBUNTU_UPGRADABLE)) {
             // check if the upgradeable images available.
             if(findUpgradeable()) {
                 Log.d(TAG, "There is a upgradeable file. send VERSION_UPDATE");
