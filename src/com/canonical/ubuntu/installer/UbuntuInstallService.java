@@ -1175,6 +1175,11 @@ public class UbuntuInstallService extends IntentService {
 
     /**
      * check if recovery command is exist on the system.
+     * system-image in Ubuntu Touch downloaded new version of image at /cache/recovery.
+     * This function check if there is a ubuntu_command file in /cache/recovery.
+     *
+     * The ubuntu_command  will be renamed or removed after installation.
+     *
      * @return if there is upgradeable images stored in /cache.
      */
     public boolean findUpgradeable() {
