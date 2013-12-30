@@ -332,6 +332,11 @@ public class UbuntuInstallService extends IntentService {
         HashMap<String, String> channels= new HashMap<String, String>();
         boolean includeHidden = getSharedPreferences( SHARED_PREF, Context.MODE_PRIVATE).getBoolean(PREF_KEY_DEVELOPER, false);
         String deviceModel = Build.DEVICE.toLowerCase(Locale.US);
+        if("nakasi".equals(deviceModel) || "tilapia".equals(deviceModel)) {
+            // workaround for Nexus 7 3G.
+            deviceModel = "grouper";
+        }
+
         String channelJsonStr = Utils.httpDownload(BASE_URL + CHANNELS_JSON);
         if (channelJsonStr != null) {
             JSONObject list;

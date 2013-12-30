@@ -280,8 +280,7 @@ public class InstallActivity extends Activity {
     private void startDownload(final String channel, final boolean bootstrap, final int version) {
         Intent startDownload = new Intent(UbuntuInstallService.DOWNLOAD_RELEASE);
         startDownload.putExtra(UbuntuInstallService.DOWNLOAD_RELEASE_EXTRA_CHANNEL_ALIAS, channel);
-        startDownload.putExtra(UbuntuInstallService.DOWNLOAD_RELEASE_EXTRA_CHANNEL_URL, 
-              mAvailableChannels.get(channel));
+        startDownload.putExtra(UbuntuInstallService.DOWNLOAD_RELEASE_EXTRA_CHANNEL_URL, mAvailableChannels.get(channel));
         startDownload.putExtra(UbuntuInstallService.DOWNLOAD_RELEASE_EXTRA_BOOTSTRAP, bootstrap);
         if (version != -1) {
             startDownload.putExtra(UbuntuInstallService.DOWNLOAD_RELEASE_EXTRA_VERSION, version);
@@ -326,7 +325,7 @@ public class InstallActivity extends Activity {
                                     startDownload(channel, bootstrap, value);
                                 }
                             }).show();;
-                        }                        
+                        }
                     }
                 });
             }
@@ -354,6 +353,7 @@ public class InstallActivity extends Activity {
                             mProgressBar.setProgress(0);
                             mProgressText.setText("");
                         } else {
+                            // FIXME: should tell the user his/her device is not supported.
                             mInstallButton.setText(Html.fromHtml(getResources().getString(R.string.install_button_label_no_channel)));
                             mInstallButton.setEnabled(false);
                             mProgressBar.setEnabled(false);

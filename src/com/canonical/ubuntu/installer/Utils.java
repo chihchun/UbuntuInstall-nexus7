@@ -34,7 +34,6 @@ public class Utils {
     private final static String TAG = "Utils";
     private final static int SIGNATURE_SIZE = 490;
 
-
     public static void showToast(Context context, String message) {
         int duration = Toast.LENGTH_SHORT;
         Toast toast = Toast.makeText(context, message, duration);
@@ -188,6 +187,11 @@ public class Utils {
 
     public static String getBootPartitionPath() {
         String deviceModel = Build.DEVICE.toLowerCase(Locale.US);
+        if("nakasi".equals(deviceModel) || "tilapia".equals(deviceModel)) {
+            // workaround for Nexus 7 3G.
+            deviceModel = "grouper";
+        }
+
         if ("flo".equals(deviceModel)) {
             return UbuntuInstallService.FLO_PARTITION_BOOT;
         } else if ("grouper".equals(deviceModel)) {
